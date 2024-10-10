@@ -1,0 +1,8 @@
+[workspace]
+[package]
+name = "block-nonce-minigame-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.8-testnet" }
