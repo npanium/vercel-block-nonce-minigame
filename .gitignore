@@ -1,18 +1,77 @@
+# Node.js dependencies
 node_modules
-.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Hardhat files
+# Local environment files
+.env
+.env*.local
+*.pem
+
+# Hardhat files (solidity-based backend)
 /cache
 /artifacts
-
-# TypeChain files
 /typechain
 /typechain-types
-
-# solidity-coverage files
 /coverage
 /coverage.json
 
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
 
+# Rust build files (backend)
+target
+.cargo
+
+# Next.js (frontend)
+/.next/
+/out/
+/build
+
+# Vercel (frontend)
+/.vercel
+
+# Static site output
+/public
+
+# Testing output
+/coverage
+/test-results
+
+# Miscellaneous files
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Log files
+*.log
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+
+# Production build files
+/dist
+/build
+
+# Lock files (optional, depends on your team setup)
+/package-lock.json
+/yarn.lock
+
+# Git-related
+.git/
+.gitignore
+.gitattributes
+
+# Binaries
+*.exe
+*.out
+*.app
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+*.orig

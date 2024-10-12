@@ -1,9 +1,11 @@
 use actix_web::{web, HttpResponse, Responder};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use aligned_sdk::core::types::{PriceEstimate, AlignedVerificationData, Network, ProvingSystemId, VerificationData};
-use aligned_sdk::sdk::{estimate_fee, submit_and_wait_verification, get_next_nonce};
+use aligned_sdk::sdk::{estimate_fee, submit_and_wait_verification, get_next_nonce, get_payment_service_address};
 use ethers::prelude::*;
 use ethers::utils::hex;
+use ethers::types::{TransactionRequest, U256};
+use std::sync::Arc;
 
 use crate::state::AppState;
 use crate::types::{ProofRequest, ProofResponse}; 
@@ -23,18 +25,17 @@ pub async fn generate_and_verify_proof(
     println!("RPC URL: {}", rpc_url);
     println!("Wallet address: {:?}", wallet.address());
 
+    // Deposit funds to batcher if needed
+    println!("Depositing funds");
+    let deposit_result = deposit_to_batcher(wallet.address(), state.signer.clone()).await;
+    if let Err(e) = deposit_result {
+        println!("Failed to deposit to batcher: {:?}", e);
+        return HttpResponse::InternalServerError().json(ProofResponse {
+            is_valid: false,
+            verification_data: None,
+        });
+    }
 
- // Deposit funds to batcher if needed
- let deposit_result = deposit_to_batcher(wallet.address(), state.signer.clone()).await;
- if let Err(e) = deposit_result {
-     println!("Failed to deposit to batcher: {:?}", e);
-     return HttpResponse::InternalServerError().json(ProofResponse {
-         is_valid: false,
-         verification_data: None,
-     });
- }
-
- 
     let mut stdin = SP1Stdin::new();
     println!("Writing grid and solution to stdin");
 
@@ -104,7 +105,7 @@ pub async fn generate_and_verify_proof(
     };
 
     println!("Estimating fee");
-    let max_fee = estimate_fee(&rpc_url, PriceEstimate::Default)
+    let max_fee = estimate_fee(rpc_url, PriceEstimate::Default)
         .await
         .expect("failed to fetch gas price from the blockchain");
     let max_fee_string = ethers::utils::format_units(max_fee, 18).unwrap();
@@ -118,23 +119,15 @@ pub async fn generate_and_verify_proof(
     println!("Submitting and verifying..."); 
     let result = submit_and_wait_verification(
         BATCHER_URL,
-        &rpc_url,
+        rpc_url,
         NETWORK,
         &verification_data,
         max_fee,
         wallet.clone(),
         nonce,
     )
-    .await.unwrap();
+    .await;
 
-    println!(
-        "Proof submitted and verified successfully on batch {}, claiming prize...",
-        hex::encode(result.batch_merkle_root)
-    );
-    let response =  HttpResponse::Ok().json(ProofResponse {
-                    is_valid: true,
-                    verification_data: None,
-                });
     let response = match result {
         Ok(aligned_verification_data) => {
             println!(
@@ -156,10 +149,8 @@ pub async fn generate_and_verify_proof(
     };
 
     println!("Returning response and exiting function.");
-return response;
+    response
 }
-// Define ProofRequest and ProofResponse structs here
-// or in a separate types.rs file if they are used across multiple modules
 
 async fn deposit_to_batcher(
     from: Address,
@@ -178,7 +169,7 @@ async fn deposit_to_batcher(
     match receipt {
         Some(receipt) => {
             println!(
-                "Payment sent. Transaction hash: {:x}",
+                "Payment sent. Transaction hash: {:?}",
                 receipt.transaction_hash
             );
             Ok(())
