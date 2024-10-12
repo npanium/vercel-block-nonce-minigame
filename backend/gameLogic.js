@@ -1,80 +1,117 @@
-// File: backend/gameLogic.js
+/**
+ * Game Logic for Grid Mismatch Challenge
+ *
+ * Core functionality:
+ * 1. Generates a large grid (8x8) for display
+ * 2. Selects a random smaller grid (4x4) within the large grid
+ * 3. Creates mismatches within the small grid
+ * 4. Inserts the mismatched small grid back into the large grid
+ *
+ * This approach creates a challenging game where players interact with
+ * a larger grid, but the core puzzle exists within a hidden smaller grid.
+ */
 
 const crypto = require("crypto");
-
-// Constants
-const GRID_SIZE = 4;
+const VISIBLE_GRID_SIZE = 8; // or 16, depending on your preference
+const ACTUAL_GRID_SIZE = 4;
 const NUM_MISMATCHES = 1;
 
 function generateBlock() {
-  let grid = [];
-  for (let i = 0; i < GRID_SIZE; i++) {
-    let row = [];
-    for (let j = 0; j < GRID_SIZE; j++) {
-      row.push(Math.floor(Math.random() * 256)); // 0-255 for each cell
-    }
-    grid.push(row);
-  }
+  // Generate the larger visible grid
+  let visibleGrid = Array(VISIBLE_GRID_SIZE)
+    .fill()
+    .map(() =>
+      Array(VISIBLE_GRID_SIZE)
+        .fill()
+        .map(() => Math.floor(Math.random() * 256))
+    );
 
-  // Create mismatches
+  // Select a random 4x4 subgrid
+  let startX = Math.floor(
+    Math.random() * (VISIBLE_GRID_SIZE - ACTUAL_GRID_SIZE + 1)
+  );
+  let startY = Math.floor(
+    Math.random() * (VISIBLE_GRID_SIZE - ACTUAL_GRID_SIZE + 1)
+  );
+
+  // Extract the original 4x4 grid
+  let originalGrid = visibleGrid
+    .slice(startX, startX + ACTUAL_GRID_SIZE)
+    .map((row) => row.slice(startY, startY + ACTUAL_GRID_SIZE));
+
+  // Create a copy for the mismatched grid
+  let currentGrid = JSON.parse(JSON.stringify(originalGrid));
+
+  // Create mismatches within the 4x4 subgrid
   let mismatches = [];
   for (let i = 0; i < NUM_MISMATCHES; i++) {
-    let x, y;
-    do {
-      x = Math.floor(Math.random() * GRID_SIZE);
-      y = Math.floor(Math.random() * GRID_SIZE);
-    } while (mismatches.some((m) => m.x === x && m.y === y));
+    let x = Math.floor(Math.random() * ACTUAL_GRID_SIZE);
+    let y = Math.floor(Math.random() * ACTUAL_GRID_SIZE);
 
-    let originalValue = grid[x][y];
+    let originalValue = currentGrid[x][y];
     let newValue;
     do {
       newValue = Math.floor(Math.random() * 256);
     } while (newValue === originalValue);
 
-    grid[x][y] = newValue;
+    currentGrid[x][y] = newValue;
+    visibleGrid[startX + x][startY + y] = newValue;
     mismatches.push({ x, y, originalValue });
   }
 
-  return { grid, mismatches };
+  return {
+    visibleGrid,
+    originalGrid,
+    currentGrid,
+    mismatches,
+    subgridPosition: { x: startX, y: startY },
+  };
 }
 
-function verifySolution(block, solution) {
-  if (solution.length !== NUM_MISMATCHES) {
-    return false;
-  }
-  console.log(solution.length);
-  const mismatchMap = new Map(
-    block.mismatches.map((m) => [`${m.x},${m.y}`, m.originalValue])
-  );
+function verifySolution(gameState, solution) {
+  const { originalGrid, currentGrid, subgridPosition } = gameState;
 
-  console.log("Mismatch Map: " + Array.from(mismatchMap));
+  for (let { x, y, value } of solution) {
+    // Adjust x and y to the subgrid coordinates
+    let subX = x - subgridPosition.x;
+    let subY = y - subgridPosition.y;
 
-  for (let correction of solution) {
-    const key = `${correction.x},${correction.y}`;
-
-    if (!mismatchMap.has(key)) {
-      console.log(`Mismatch Map doesnt have key: ${key}`);
+    // Check if the correction is within the 4x4 subgrid
+    if (
+      subX < 0 ||
+      subX >= ACTUAL_GRID_SIZE ||
+      subY < 0 ||
+      subY >= ACTUAL_GRID_SIZE
+    ) {
       return false;
     }
-    if (mismatchMap.get(key) !== correction.value) {
-      console.log(`Mismatch Map doesnt value: ${key}, ${correction.value}`);
+
+    // Check if the correction is valid
+    if (
+      currentGrid[subX][subY] !== value ||
+      originalGrid[subX][subY] !== value
+    ) {
       return false;
     }
-    mismatchMap.delete(key);
   }
 
-  return mismatchMap.size === 0;
+  return solution.length === NUM_MISMATCHES;
 }
 
-function hashBlock(block) {
-  const blockString = JSON.stringify(block.grid);
-  return crypto.createHash("sha256").update(blockString).digest("hex");
+/**
+ * Generates a hash of the game state for verification purposes.
+ * @param {Array} grid - The 2D array representing the game grid.
+ * @returns {string} A hexadecimal string representing the hash of the grid.
+ */
+function hashBlock(grid) {
+  const gridString = JSON.stringify(grid);
+  return crypto.createHash("sha256").update(gridString).digest("hex");
 }
 
 module.exports = {
   generateBlock,
   verifySolution,
   hashBlock,
-  GRID_SIZE,
-  NUM_MISMATCHES,
+  VISIBLE_GRID_SIZE,
+  ACTUAL_GRID_SIZE,
 };
