@@ -1,13 +1,18 @@
+// Test/Experiment file. No purpose.
+
 use sp1_sdk::{ProverClient, SP1Stdin};
 use std::fs;
 
-const ELF: &[u8] = include_bytes!("../../../program/elf/riscv32im-succinct-zkvm-elf");
-
 fn main() {
     let client = ProverClient::new();
-    let (pk, vk) = client.setup(ELF);
 
     for num_bugs in 5..=10 {
+       // Load the ELF file dynamically based on num_bugs
+       let elf_path = format!("../program/elf/temp_program_{}", num_bugs);
+       let elf = fs::read(&elf_path).expect(&format!("Failed to read ELF file: {}", elf_path));
+
+       let (pk, vk) = client.setup(&elf);
+       
         let mut stdin = SP1Stdin::new();
         stdin.write(&num_bugs.to_string());
 
@@ -23,7 +28,6 @@ fn main() {
 
         println!("Proof generated and saved for {} bugs", num_bugs);
 
-        // Verify the proof (optional, but good for testing)
         client.verify(&proof, &vk).expect("Verification failed");
         println!("Proof verified for {} bugs", num_bugs);
     }

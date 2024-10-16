@@ -1,117 +1,61 @@
-/**
- * Game Logic for Grid Mismatch Challenge
- *
- * Core functionality:
- * 1. Generates a large grid (8x8) for display
- * 2. Selects a random smaller grid (4x4) within the large grid
- * 3. Creates mismatches within the small grid
- * 4. Inserts the mismatched small grid back into the large grid
- *
- * This approach creates a challenging game where players interact with
- * a larger grid, but the core puzzle exists within a hidden smaller grid.
- */
+const ethers = require("ethers");
 
-const crypto = require("crypto");
-const VISIBLE_GRID_SIZE = 8; // or 16, depending on your preference
-const ACTUAL_GRID_SIZE = 4;
-const NUM_MISMATCHES = 1;
+// Game configuration
+const MIN_BUGS = 5;
+const MAX_BUGS = 10;
+const MIN_GRID_SIZE = 8;
+const MAX_GRID_SIZE = 16;
 
-function generateBlock() {
-  // Generate the larger visible grid
-  let visibleGrid = Array(VISIBLE_GRID_SIZE)
-    .fill()
-    .map(() =>
-      Array(VISIBLE_GRID_SIZE)
-        .fill()
-        .map(() => Math.floor(Math.random() * 256))
-    );
+// Generate a random game configuration
+function generateGameConfig() {
+  const gridSize =
+    Math.floor(Math.random() * (MAX_GRID_SIZE - MIN_GRID_SIZE + 1)) +
+    MIN_GRID_SIZE;
+  const numBugs =
+    Math.floor(Math.random() * (MAX_BUGS - MIN_BUGS + 1)) + MIN_BUGS;
 
-  // Select a random 4x4 subgrid
-  let startX = Math.floor(
-    Math.random() * (VISIBLE_GRID_SIZE - ACTUAL_GRID_SIZE + 1)
-  );
-  let startY = Math.floor(
-    Math.random() * (VISIBLE_GRID_SIZE - ACTUAL_GRID_SIZE + 1)
-  );
-
-  // Extract the original 4x4 grid
-  let originalGrid = visibleGrid
-    .slice(startX, startX + ACTUAL_GRID_SIZE)
-    .map((row) => row.slice(startY, startY + ACTUAL_GRID_SIZE));
-
-  // Create a copy for the mismatched grid
-  let currentGrid = JSON.parse(JSON.stringify(originalGrid));
-
-  // Create mismatches within the 4x4 subgrid
-  let mismatches = [];
-  for (let i = 0; i < NUM_MISMATCHES; i++) {
-    let x = Math.floor(Math.random() * ACTUAL_GRID_SIZE);
-    let y = Math.floor(Math.random() * ACTUAL_GRID_SIZE);
-
-    let originalValue = currentGrid[x][y];
-    let newValue;
+  const bugs = [];
+  for (let i = 0; i < numBugs; i++) {
+    let x, y;
     do {
-      newValue = Math.floor(Math.random() * 256);
-    } while (newValue === originalValue);
-
-    currentGrid[x][y] = newValue;
-    visibleGrid[startX + x][startY + y] = newValue;
-    mismatches.push({ x, y, originalValue });
+      x = Math.floor(Math.random() * gridSize);
+      y = Math.floor(Math.random() * gridSize);
+    } while (bugs.some((bug) => bug.x === x && bug.y === y));
+    bugs.push({ x, y });
   }
 
-  return {
-    visibleGrid,
-    originalGrid,
-    currentGrid,
-    mismatches,
-    subgridPosition: { x: startX, y: startY },
-  };
+  return { gridSize, bugs };
 }
 
-function verifySolution(gameState, solution) {
-  const { originalGrid, currentGrid, subgridPosition } = gameState;
+// Prepare transaction for smart contract
+async function prepareSmartContractTransaction(
+  alignedVerificationData,
+  userAddress,
+  provider
+) {
+  const contractAddress = process.env.CONTRACT_ADDRESS;
+  const contractABI = [
+    "function verifyBatchInclusion(bytes32 proofCommitment, bytes32 pubInputCommitment, bytes32 provingSystemAuxDataCommitment, bytes20 proofGeneratorAddr, bytes32 batchMerkleRoot, bytes memory merkleProof, uint256 verificationDataBatchIndex) external returns (uint256)",
+  ];
 
-  for (let { x, y, value } of solution) {
-    // Adjust x and y to the subgrid coordinates
-    let subX = x - subgridPosition.x;
-    let subY = y - subgridPosition.y;
+  const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
-    // Check if the correction is within the 4x4 subgrid
-    if (
-      subX < 0 ||
-      subX >= ACTUAL_GRID_SIZE ||
-      subY < 0 ||
-      subY >= ACTUAL_GRID_SIZE
-    ) {
-      return false;
+  return await contract.populateTransaction.verifyBatchInclusion(
+    alignedVerificationData.verification_data_commitment.proof_commitment,
+    alignedVerificationData.verification_data_commitment.pub_input_commitment,
+    alignedVerificationData.verification_data_commitment
+      .proving_system_aux_data_commitment,
+    alignedVerificationData.verification_data_commitment.proof_generator_addr,
+    alignedVerificationData.batch_merkle_root,
+    alignedVerificationData.batch_inclusion_proof.merkle_path.flat(),
+    alignedVerificationData.index_in_batch,
+    {
+      from: userAddress,
     }
-
-    // Check if the correction is valid
-    if (
-      currentGrid[subX][subY] !== value ||
-      originalGrid[subX][subY] !== value
-    ) {
-      return false;
-    }
-  }
-
-  return solution.length === NUM_MISMATCHES;
-}
-
-/**
- * Generates a hash of the game state for verification purposes.
- * @param {Array} grid - The 2D array representing the game grid.
- * @returns {string} A hexadecimal string representing the hash of the grid.
- */
-function hashBlock(grid) {
-  const gridString = JSON.stringify(grid);
-  return crypto.createHash("sha256").update(gridString).digest("hex");
+  );
 }
 
 module.exports = {
-  generateBlock,
-  verifySolution,
-  hashBlock,
-  VISIBLE_GRID_SIZE,
-  ACTUAL_GRID_SIZE,
+  generateGameConfig,
+  prepareSmartContractTransaction,
 };

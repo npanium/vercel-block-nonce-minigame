@@ -28,6 +28,7 @@ target
 /.next/
 /out/
 /build
+frontend/.next
 
 # Vercel (frontend)
 /.vercel
