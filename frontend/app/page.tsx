@@ -11,7 +11,20 @@ export default function Home() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [score, setScore] = useState(0);
-  const [initialTime, setInitialTime] = useState(60);
+  const [initialTime, setInitialTime] = useState(600);
+
+  const enemyPositions = [
+    { x: 2, y: 7 },
+    { x: 9, y: 0 },
+    { x: 5, y: 3 },
+    { x: 0, y: 9 },
+    { x: 7, y: 6 },
+    { x: 4, y: 2 },
+    { x: 1, y: 5 },
+    { x: 8, y: 8 },
+    { x: 3, y: 1 },
+    { x: 6, y: 4 },
+  ];
 
   const startGame = () => {
     setGameStarted(true);
@@ -84,7 +97,11 @@ export default function Home() {
             />
           </div>
           <div className="mb-4">Score: {score}</div>
-          <GridGame gridSize={gridSize} onCellReveal={handleCellReveal} />
+          <GridGame
+            gridSize={gridSize}
+            onCellReveal={handleCellReveal}
+            enemyPositions={enemyPositions}
+          />
         </>
       )}
 

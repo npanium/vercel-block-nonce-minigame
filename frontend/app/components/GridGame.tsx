@@ -1,54 +1,19 @@
-"use client";
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  IoHeartOutline,
-  IoStarOutline,
-  IoSquareOutline,
-  IoAtCircleOutline,
-  IoFlowerOutline,
-  IoLeafOutline,
-  IoRocketOutline,
-  IoMoonOutline,
-} from "react-icons/io5";
-import { IconType } from "react-icons/lib";
-import MouseFollower from "./MouseFollower";
+import Image from "next/image";
 
-const icons: IconType[] = [
-  IoHeartOutline,
-  IoStarOutline,
-  IoSquareOutline,
-  IoAtCircleOutline,
-  IoFlowerOutline,
-  IoLeafOutline,
-  IoRocketOutline,
-  IoMoonOutline,
-];
-
-const mainColors: string[] = [
-  "text-red-500",
-  "text-blue-500",
-  "text-green-500",
-  "text-yellow-500",
-  "text-purple-500",
-  "text-pink-500",
-  "text-indigo-500",
-  "text-teal-500",
-];
-
-const hiddenColors: string[] = [
-  "text-red-800",
-  "text-blue-800",
-  "text-green-800",
-  "text-yellow-800",
-  "text-purple-800",
-  "text-pink-800",
-  "text-indigo-800",
-  "text-teal-800",
+const shapes = [
+  "semicircle",
+  "circle",
+  "hexagon",
+  "square",
+  "triangle",
+  "cross",
+  "diamond",
+  "star",
 ];
 
 interface CellData {
-  icon: IconType;
-  color: string;
+  shape: string;
   offset: {
     x: number;
     y: number;
@@ -63,56 +28,35 @@ interface Position {
 interface GridGameProps {
   gridSize: number;
   onCellReveal: () => void;
+  enemyPositions: Position[]; // New prop for enemy positions
 }
 
-const GridGame: React.FC<GridGameProps> = ({ gridSize, onCellReveal }) => {
+const GridGame: React.FC<GridGameProps> = ({
+  gridSize,
+  onCellReveal,
+  enemyPositions,
+}) => {
   const [grid, setGrid] = useState<CellData[][]>([]);
-  const [hiddenGrid, setHiddenGrid] = useState<CellData[][]>([]);
   const [cursorPosition, setCursorPosition] = useState<Position>({
     x: -1,
     y: -1,
   });
   const [revealedCells, setRevealedCells] = useState<Position[]>([]);
-  const [mousePosition, setMousePosition] = useState<Position>({
-    x: -1,
-    y: -1,
-  });
-  const [isHovering, setIsHovering] = useState(false);
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) / (rect.width / gridSize));
-      const y = Math.floor((e.clientY - rect.top) / (rect.height / gridSize));
-      setCursorPosition({ x, y });
-
-      // Update mouse position for the follower
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    },
-    [gridSize]
-  );
-
-  const handleMouseEnter = () => setIsHovering(true);
-  const handleMouseLeave = () => setIsHovering(false);
 
   useEffect(() => {
-    const createGrid = (isHidden: boolean) =>
+    const createGrid = () =>
       Array(gridSize)
         .fill(null)
         .map(() =>
           Array(gridSize)
             .fill(null)
             .map(() => ({
-              icon: icons[Math.floor(Math.random() * icons.length)],
-              color: isHidden
-                ? hiddenColors[Math.floor(Math.random() * hiddenColors.length)]
-                : mainColors[Math.floor(Math.random() * mainColors.length)],
+              shape: shapes[Math.floor(Math.random() * shapes.length)],
               offset: { x: 0, y: 0 },
             }))
         );
 
-    setGrid(createGrid(false));
-    setHiddenGrid(createGrid(true));
+    setGrid(createGrid());
     setRevealedCells([]);
 
     const intervalId = setInterval(() => {
@@ -132,15 +76,15 @@ const GridGame: React.FC<GridGameProps> = ({ gridSize, onCellReveal }) => {
     return () => clearInterval(intervalId);
   }, [gridSize]);
 
-  // const handleMouseMove = useCallback(
-  //   (e: React.MouseEvent<HTMLDivElement>) => {
-  //     const rect = e.currentTarget.getBoundingClientRect();
-  //     const x = Math.floor((e.clientX - rect.left) / (rect.width / gridSize));
-  //     const y = Math.floor((e.clientY - rect.top) / (rect.height / gridSize));
-  //     setCursorPosition({ x, y });
-  //   },
-  //   [gridSize]
-  // );
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / (rect.width / gridSize));
+      const y = Math.floor((e.clientY - rect.top) / (rect.height / gridSize));
+      setCursorPosition({ x, y });
+    },
+    [gridSize]
+  );
 
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -155,7 +99,11 @@ const GridGame: React.FC<GridGameProps> = ({ gridSize, onCellReveal }) => {
     [onCellReveal]
   );
 
-  const renderGrid = (gridData: CellData[][], isHidden: boolean) => (
+  const isEnemyCell = (x: number, y: number) => {
+    return enemyPositions.some((pos) => pos.x === x && pos.y === y);
+  };
+
+  const renderGrid = (isHidden: boolean) => (
     <div
       className={`absolute inset-0 grid`}
       style={{
@@ -163,43 +111,52 @@ const GridGame: React.FC<GridGameProps> = ({ gridSize, onCellReveal }) => {
         gridTemplateRows: `repeat(${gridSize}, 1fr)`,
       }}
     >
-      {gridData.map((row, y) =>
+      {grid.map((row, y) =>
         row.map((cell, x) => {
-          const Icon = cell.icon;
           const isRevealed =
             !isHidden ||
             (Math.abs(x - cursorPosition.x) <= 1 &&
               Math.abs(y - cursorPosition.y) <= 1);
+          let imageName;
+          if (isHidden) {
+            imageName = isEnemyCell(x, y)
+              ? `enemies/e-${cell.shape}`
+              : `filled/f-${cell.shape}`;
+          } else {
+            imageName = `normal/${cell.shape}`;
+          }
           return (
             <div
               key={`${x}-${y}`}
-              // hover:border-4 hover:border-dashed hover:border-teal-300
-              className={`flex justify-center items-center cursor-none relative transition-all duration-1000 ease-out hover:bg-gray-900 
-                
-                ${isRevealed ? "opacity-100" : "opacity-0"} cell-style `}
+              className={`flex justify-center items-center relative transition-all ease-out hover:bg-gray-900 border-blue-600 
+                hover:border-4 hover:border-dashed hover:border-teal-300
+                ${isRevealed ? "opacity-100" : "opacity-0"} ${
+                isEnemyCell(x, y) ? "duration-500" : "duration-1000"
+              } cell-style `}
               onClick={() => handleCellClick(x, y)}
               style={{
                 transform: `translate(${cell.offset.x}px, ${cell.offset.y}px)`,
               }}
             >
-              <Icon
-                className={`${cell.color} ${
+              <Image
+                src={`/grid-images/${imageName}.png`}
+                alt={cell.shape}
+                width={750 / gridSize / 1.8}
+                height={750 / gridSize / 1.8}
+                className={`${
                   cursorPosition.x === x && cursorPosition.y === y
                     ? "filter drop-shadow-lg scale-110"
                     : ""
                 }`}
-                style={{
-                  fontSize: `${750 / gridSize / 2}px`,
-                }}
               />
               {revealedCells.some((rc) => rc.x === x && rc.y === y) && (
                 <div
-                  className="absolute inset-0 bg-white bg-opacity-80 flex justify-center items-center text-gray-700"
+                  className="absolute inset-0 rounded border border-rose-700 bg-opacity-80 flex justify-center items-center text-gray-700 bad-cell"
                   style={{
                     fontSize: `${750 / gridSize / 4}px`,
                   }}
                 >
-                  {`${x},${y}`}
+                  {/* {`${x},${y}`} */}
                 </div>
               )}
             </div>
@@ -213,12 +170,9 @@ const GridGame: React.FC<GridGameProps> = ({ gridSize, onCellReveal }) => {
     <div
       className="w-[750px] h-[750px] relative overflow-hidden"
       onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
-      {renderGrid(grid, false)}
-      {renderGrid(hiddenGrid, true)}
-      {isHovering && <MouseFollower x={mousePosition.x} y={mousePosition.y} />}
+      {renderGrid(false)}
+      {renderGrid(true)}
     </div>
   );
 };

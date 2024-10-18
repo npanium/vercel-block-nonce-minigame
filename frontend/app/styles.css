@@ -15,8 +15,13 @@
 }
 
 .cell-style:hover {
-  /* box-shadow: 0 0 100px 20px rgba(1, 153, 255, 0.833),
-    0 0 50px rgba(0, 255, 229, 0.4); */
+  box-shadow: 0 0 100px 20px rgba(1, 153, 255, 0.833),
+    0 0 50px rgba(0, 255, 229, 0.4);
+}
+
+.bad-cell {
+  box-shadow: inset 0 0 10px 2px rgba(255, 1, 132, 0.833),
+    0 0 50px rgba(255, 0, 51, 0.4);
 }
 
 .logo {
