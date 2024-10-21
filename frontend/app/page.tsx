@@ -58,7 +58,7 @@ export default function Home() {
       )}
 
       {!gameStarted && !gameEnded && (
-        <button onClick={startGame} className="btn-primary">
+        <button onClick={startGame} className="pulse-button">
           Start Game
         </button>
       )}
@@ -109,7 +109,7 @@ export default function Home() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Game Over!</h2>
           <p className="mb-4">Your final score: {score}</p>
-          <button onClick={startGame} className="btn-primary">
+          <button onClick={startGame} className="pulse-button">
             Play Again
           </button>
         </div>

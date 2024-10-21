@@ -28,7 +28,7 @@ interface Position {
 interface GridGameProps {
   gridSize: number;
   onCellReveal: () => void;
-  enemyPositions: Position[]; // New prop for enemy positions
+  enemyPositions: Position[];
 }
 
 const GridGame: React.FC<GridGameProps> = ({
@@ -41,7 +41,7 @@ const GridGame: React.FC<GridGameProps> = ({
     x: -1,
     y: -1,
   });
-  const [revealedCells, setRevealedCells] = useState<Position[]>([]);
+  const [revealedCells, setRevealedCells] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const createGrid = () =>
@@ -57,7 +57,7 @@ const GridGame: React.FC<GridGameProps> = ({
         );
 
     setGrid(createGrid());
-    setRevealedCells([]);
+    setRevealedCells(new Set());
 
     const intervalId = setInterval(() => {
       setGrid((prevGrid) =>
@@ -89,11 +89,15 @@ const GridGame: React.FC<GridGameProps> = ({
   const handleCellClick = useCallback(
     (x: number, y: number) => {
       setRevealedCells((prev) => {
-        if (!prev.some((cell) => cell.x === x && cell.y === y)) {
+        const cellKey = `${x},${y}`;
+        const newSet = new Set(prev);
+        if (newSet.has(cellKey)) {
+          newSet.delete(cellKey);
+        } else {
+          newSet.add(cellKey);
           onCellReveal();
-          return [...prev, { x, y }];
         }
-        return prev;
+        return newSet;
       });
     },
     [onCellReveal]
@@ -109,6 +113,7 @@ const GridGame: React.FC<GridGameProps> = ({
       style={{
         gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
         gridTemplateRows: `repeat(${gridSize}, 1fr)`,
+        // gap: "20px",
       }}
     >
       {grid.map((row, y) =>
@@ -125,10 +130,11 @@ const GridGame: React.FC<GridGameProps> = ({
           } else {
             imageName = `normal/${cell.shape}`;
           }
+          const isCellRevealed = revealedCells.has(`${x},${y}`);
           return (
             <div
               key={`${x}-${y}`}
-              className={`flex justify-center items-center relative transition-all ease-out hover:bg-gray-900 border-blue-600 
+              className={`cursor-pointer flex justify-center items-center relative transition-all ease-out hover:bg-gray-900 border-blue-600 
                 hover:border-4 hover:border-dashed hover:border-teal-300
                 ${isRevealed ? "opacity-100" : "opacity-0"} ${
                 isEnemyCell(x, y) ? "duration-500" : "duration-1000"
@@ -142,21 +148,21 @@ const GridGame: React.FC<GridGameProps> = ({
                 src={`/grid-images/${imageName}.png`}
                 alt={cell.shape}
                 width={750 / gridSize / 1.8}
-                height={750 / gridSize / 1.8}
+                height={850 / gridSize / 1.8}
                 className={`${
                   cursorPosition.x === x && cursorPosition.y === y
                     ? "filter drop-shadow-lg scale-110"
                     : ""
                 }`}
               />
-              {revealedCells.some((rc) => rc.x === x && rc.y === y) && (
+              {isCellRevealed && (
                 <div
-                  className="absolute inset-0 rounded border border-rose-700 bg-opacity-80 flex justify-center items-center text-gray-700 bad-cell"
+                  className="absolute inset-0 rounded border border-rose-700 backdrop-brightness-100 bg-opacity-80 flex justify-center items-center text-gray-700 bad-cell"
                   style={{
                     fontSize: `${750 / gridSize / 4}px`,
                   }}
                 >
-                  {/* {`${x},${y}`} */}
+                  {/* You can add any content here if needed */}
                 </div>
               )}
             </div>
@@ -167,10 +173,7 @@ const GridGame: React.FC<GridGameProps> = ({
   );
 
   return (
-    <div
-      className="w-[750px] h-[750px] relative overflow-hidden"
-      onMouseMove={handleMouseMove}
-    >
+    <div className="w-[750px] h-[750px] relative" onMouseMove={handleMouseMove}>
       {renderGrid(false)}
       {renderGrid(true)}
     </div>

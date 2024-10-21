@@ -5,33 +5,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.8-testnet" }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2", features = [
-    "sha3",
-] }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.1" }
 serde = { version = "1.0", features = ["derive"] }
-
-
-[[bin]]
-name = "temp_program_5"
-path = "temp_program_5.rs"
-
-[[bin]]
-name = "temp_program_6"
-path = "temp_program_6.rs"
-
-[[bin]]
-name = "temp_program_7"
-path = "temp_program_7.rs"
-
-[[bin]]
-name = "temp_program_8"
-path = "temp_program_8.rs"
-
-[[bin]]
-name = "temp_program_9"
-path = "temp_program_9.rs"
-
-[[bin]]
-name = "temp_program_10"
-path = "temp_program_10.rs"
