@@ -5,6 +5,7 @@ import GridGame from "./components/GridGame";
 import Image from "next/image";
 import heroImage from "../public/hero-logo.png";
 import IsometricGrid from "./components/IsometricGrid";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export default function Home() {
   const [gridSize, setGridSize] = useState(10);
@@ -65,7 +66,9 @@ export default function Home() {
 
       {gameStarted && (
         <>
-          {" "}
+          <div className="flex">
+            <ConnectButton />
+          </div>
           <IsometricGrid
             gridSize={10}
             squareSize={35}
@@ -78,6 +81,7 @@ export default function Home() {
             onTimerEnd={endGame}
             isRunning={gameStarted}
           />
+
           <div className="mb-4">
             <label htmlFor="gridSize" className="mr-2">
               Grid Size:

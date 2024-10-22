@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Chakra_Petch } from "next/font/google";
-import "./globals.css";
-import "./styles.css";
+import "./styles/globals.css";
+import "./styles/styles.css";
+import "./styles/customWalletStyles.css";
+
+import { Providers } from "./providers";
 
 // const inter = Inter({ subsets: ["latin"] });
 const chakra = Chakra_Petch({ weight: "600", subsets: ["latin"] });
@@ -18,7 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={chakra.className}>{children}</body>
+      <body className={chakra.className}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

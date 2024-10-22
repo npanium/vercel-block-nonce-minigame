@@ -161,9 +161,7 @@ const GridGame: React.FC<GridGameProps> = ({
                   style={{
                     fontSize: `${750 / gridSize / 4}px`,
                   }}
-                >
-                  {/* You can add any content here if needed */}
-                </div>
+                />
               )}
             </div>
           );
