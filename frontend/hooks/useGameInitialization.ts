@@ -53,7 +53,6 @@ export const useGameInitialization = (
         bugs: generatedData.bugs,
       };
       setGameConfig(config);
-      console.log(`Game ${gameId} started with data:`, generatedData);
     } catch (error) {
       const errorMessage =
         error instanceof ApiError ? error.message : "Failed to initialize game";

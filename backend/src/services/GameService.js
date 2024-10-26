@@ -1,8 +1,9 @@
 class GameService {
-  constructor(gameStateManager, proofVerifier, provider) {
+  constructor(gameStateManager, proofVerifier, provider, io) {
     this.gameStateManager = gameStateManager;
     this.proofVerifier = proofVerifier;
     this.provider = provider;
+    this.io = io;
 
     // Game configuration constants
     this.GAME_CONFIG = {
@@ -10,7 +11,7 @@ class GameService {
       MAX_BUGS: 10,
       MIN_GRID_SIZE: 8,
       MAX_GRID_SIZE: 16,
-      GAME_DURATION: 30000, // 30 seconds
+      GAME_DURATION: 35000, // 35 seconds
     };
   }
 
@@ -169,25 +170,59 @@ class GameService {
       game.config.bugs.some((bug) => bug.x === cell.x && bug.y === cell.y)
     ).length;
 
+    const initialResult = {
+      bugsFound,
+      totalBugs: game.config.bugs.length,
+      clickedCells: game.clickedCells.length,
+      duration: Date.now() - game.startTime,
+      endType,
+      proofVerified: false,
+      verificationInProgress: true,
+    };
+
+    // Emit initial result immediately
+    console.log(`Emitting initial gameEnded event for game ${gameId}`);
+    this.io.to(gameId).emit("gameEnded", {
+      gameId,
+      result: initialResult,
+      endType,
+      status: "verifying",
+    });
+
     try {
-      // Verify the bugs found with the proof verifier
-      const verificationResult = await this.proofVerifier.verifyGuess(
+      // Verify the bugs found with the proof verifier Locally
+      const verificationResult = await this.proofVerifier.verifyGuessLocal(
         bugsFound
       );
 
-      const gameResult = {
-        bugsFound,
-        totalBugs: game.config.bugs.length,
-        clickedCells: game.clickedCells.length,
-        duration: Date.now() - game.startTime,
-        endType,
+      const finalResult = {
+        ...initialResult,
         proofVerified: verificationResult.success,
+        verificationInProgress: false,
       };
 
-      updates.result = gameResult;
+      const updates = {
+        isEnded: true,
+        endType,
+        endTime: Date.now(),
+        timeoutId: null,
+        result: finalResult,
+      };
+
       this.gameStateManager.updateGame(gameId, updates);
 
-      return gameResult;
+      console.log(
+        `Emitting final gameEnded event with verification for game ${gameId}`
+      );
+      this.io.to(gameId).emit("gameEnded", {
+        gameId,
+        result: finalResult,
+        endType,
+        status: "complete",
+      });
+
+      // console.log(`Proof verified with result ${JSON.stringify(finalResult)}`);
+      return finalResult;
     } catch (error) {
       console.error(`Error verifying proof for game ${gameId}:`, error);
       throw new Error("Failed to verify game result");

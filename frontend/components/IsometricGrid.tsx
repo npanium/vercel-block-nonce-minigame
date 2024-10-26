@@ -1,44 +1,47 @@
+import { useRemainingTime } from "@/hooks/useRemainingTime";
 import { useState, useEffect } from "react";
 
 interface IsometricGridProps {
   gridSize: number;
   squareSize: number;
+  startTime: number;
   totalTime: number;
   remainingTime: number;
   updateInterval: number;
-  isRunning: boolean;
+
   className: string | undefined;
 }
 
 const IsometricGrid: React.FC<IsometricGridProps> = ({
   gridSize,
   squareSize,
+  startTime,
   totalTime,
   remainingTime,
   updateInterval,
-  isRunning,
+
   className,
 }) => {
   const [isAnimated, setIsAnimated] = useState(true);
   const [hoveredSquares, setHoveredSquares] = useState<Set<number>>(new Set());
+  // const { remainingTime } = useRemainingTime(startTime, totalTime);
 
   const squares = Array.from(
     { length: gridSize * gridSize },
     (_, index) => index
   );
-
   useEffect(() => {
-    if (!isRunning) {
+    if (remainingTime === 0) {
       // Reset hover states when not running
       setHoveredSquares(new Set());
       return;
     }
 
-    // if (remainingTime < 2) {
-    //   // Set all squares to hovered when time is up
-    //   setHoveredSquares(new Set(squares));
-    //   return;
-    // }
+    if (remainingTime < 2) {
+      // Set all squares to hovered when time is up
+      setHoveredSquares(new Set(squares));
+      return;
+    }
 
     // Skip updates that aren't on the interval
     if (remainingTime % updateInterval !== 0) {
@@ -73,9 +76,10 @@ const IsometricGrid: React.FC<IsometricGridProps> = ({
           newSet.add(randomIndex);
         }
       }
+
       return newSet;
     });
-  }, [remainingTime]);
+  }, [remainingTime, squareSize, gridSize]);
 
   return (
     <>

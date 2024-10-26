@@ -1063,6 +1063,22 @@ video {
 .text-secondary-foreground {
   color: hsl(var(--secondary-foreground));
 }
+.text-\[\#5cffb1\] {
+  --tw-text-opacity: 1;
+  color: rgb(92 255 177 / var(--tw-text-opacity));
+}
+.text-\[\#beb8db\] {
+  --tw-text-opacity: 1;
+  color: rgb(190 184 219 / var(--tw-text-opacity));
+}
+.text-white {
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity));
+}
+.text-\[\#ff006e\] {
+  --tw-text-opacity: 1;
+  color: rgb(255 0 110 / var(--tw-text-opacity));
+}
 .underline-offset-4 {
   text-underline-offset: 4px;
 }

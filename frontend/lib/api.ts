@@ -99,8 +99,8 @@ export const setupGameEndListener = (
 ) => {
   if (socket) {
     socket.on("gameEnded", (data: GameEndData) => {
+      console.log("Game ended");
       if (data.gameId === gameId) {
-        console.log("Game ended:", data);
         onGameEnd(data);
       }
     });
@@ -132,7 +132,6 @@ export const startGame = async (
   gameId: string
 ): Promise<GameConfig> => {
   try {
-    console.log("Starting a game FE");
     const response = await apiClient.post<GameConfig>(`/start-game/${gameId}`, {
       address,
     });
@@ -148,7 +147,6 @@ export const getGameState = async (
   gameId: string
 ): Promise<GameState> => {
   try {
-    console.log("Getting game state FE");
     const response = await apiClient.get<GameState>(`/game-state/${gameId}`, {
       params: { address },
     });
@@ -163,7 +161,6 @@ export const updateGameState = async (
   update: Partial<GameState>
 ): Promise<GameState> => {
   try {
-    console.log("Updating game state FE");
     const response = await apiClient.patch<GameState>(`/${gameId}`, update);
     return response.data;
   } catch (error) {
@@ -177,9 +174,14 @@ export const endGame = async (
 ): Promise<{ success: boolean }> => {
   try {
     const response = await apiClient.post<{ success: boolean }>(
-      `/end-game/${gameId}`,
-      { address }
+      `/end-game`,
+      {
+        gameId,
+        address,
+      },
+      { timeout: 120000 } // 120 seconds timeout
     );
+    console.log(`End game response data: ${JSON.stringify(response.data)}`);
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -188,11 +190,9 @@ export const endGame = async (
 
 export const getPlayerStats = async (address: string): Promise<PlayerStats> => {
   try {
-    console.log("Getting Player stats FE");
     const response = await apiClient.get<PlayerStats>(`/stats/${address}`, {
       params: { address },
     });
-    console.log(`Stats from API: ${JSON.stringify(response)}`);
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);

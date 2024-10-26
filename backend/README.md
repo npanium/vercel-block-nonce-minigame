@@ -70,3 +70,4 @@ GET <localhost>/api/game/game-state/:gameId?address=0x...
 ## To-dos
 
 - Add a DB to log and store player game states, scores, etc.
+- Points/Tokens based on the ratio of number of correct guesses and number of clicks

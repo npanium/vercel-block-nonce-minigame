@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   cleanupGameListeners,
   clickCell,
+  endGame,
   getPlayerStats,
   initializeSocket,
   setupGameEndListener,
@@ -31,13 +32,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useGameCreation } from "@/hooks/useGameCreation";
 
 export default function GamePage() {
+  const { startNewGame, isLoading } = useGameCreation();
   const { gameId } = useParams() as { gameId: string };
   const { address } = useAccount();
   const { toast } = useToast();
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [resultBugs, setResultBugs] = useState(0);
+  const [verificationInProg, setVerificationInProg] = useState(false);
+  const [proofIsVerified, setProofIsVerified] = useState(false);
+
+  const [isEnding, setIsEnding] = useState(false);
+
   // Initialize game and get configuration
   const {
     gameConfig,
@@ -83,17 +91,17 @@ export default function GamePage() {
 
     // Setup game end listener
     setupGameEndListener(gameId, (data) => {
-      // Handle game end
       if (data.result.endType === "timeout") {
         console.log("Game ended due to timeout");
       } else {
         console.log("Game ended manually");
       }
 
-      // Update UI with results
-      console.log(`Found ${data.result.totalBugs} bugs`);
-      setResultBugs(data.result.totalBugs);
-      // You might want to trigger a state update or router navigation here
+      console.log(`Found ${data.result.bugsFound} bugs`);
+      console.log(`Data from FE: ${JSON.stringify(data)}`);
+      setVerificationInProg(data.result.verificationInProgress);
+      setProofIsVerified(data.result.proofVerified);
+      setResultBugs(data.result.bugsFound);
     });
 
     // Cleanup on component unmount
@@ -101,6 +109,31 @@ export default function GamePage() {
       cleanupGameListeners(gameId);
     };
   }, [gameId]);
+
+  const handleEndGame = async () => {
+    if (!address || !gameId) return;
+
+    try {
+      setIsEnding(true);
+      const result = await endGame(gameId, address);
+
+      if (result.success) {
+        console.log("Successfully ended the game");
+        // toast({
+        //   title: "Game Ending",
+        //   description: "Your game results are being processed...",
+        // });
+      }
+    } catch (error: any) {
+      console.error("Error ending game:", error);
+      setIsEnding(false);
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to end game",
+      //   description: error?.response?.data?.error || "Please try again",
+      // });
+    }
+  };
 
   if (!gameConfig) {
     return <LoadingComponent />;
@@ -150,8 +183,12 @@ export default function GamePage() {
             </div>
             <div className="w-full bottom-3 absolute justify-center text-center text-[#6123ff]">
               <div>
-                <button className="font-bold! text-lg hover:text-white hover:drop-shadow-[0px_0px_5px_#6123ff] px-10 leading-none">
-                  Next Block &rsaquo;
+                <button
+                  onClick={handleEndGame}
+                  disabled={isEnding || !isRunning}
+                  className="font-bold! text-lg hover:text-white hover:drop-shadow-[0px_0px_5px_#6123ff] px-10 leading-none"
+                >
+                  Verify my Guess &rsaquo;
                 </button>
               </div>
             </div>
@@ -164,10 +201,10 @@ export default function GamePage() {
               // gridSize={Math.round(gameConfig.gridSize / 2)}
               gridSize={7}
               squareSize={26}
+              startTime={gameConfig.startTime}
               totalTime={gameConfig.duration}
               remainingTime={remainingTime.remainingTime}
               updateInterval={1}
-              isRunning={isRunning}
               className=""
             />
             <div className="bg-[url('/grid-bg.png')] bg-contain bg-center bg-no-repeat px-20 pt-32 pb-20">
@@ -183,36 +220,39 @@ export default function GamePage() {
         </>
       )}
 
-      {gameState?.isEnded && (
-        <AlertDialog open>
-          {/* <AlertDialogTrigger >
-            <button
-              // onClick={() => (window.location.href = "/")}
-              className="pulse-button"
+      <AlertDialog open={remainingTime.remainingTime === 0 || isEnding}>
+        <AlertDialogContent className="bg-[#161525] border-2 border-[#5b23d4]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-bold mb-4">
+              Time's up!
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-lg">
+              <span className="text-[#5cffb1]">
+                You got {resultBugs} {resultBugs <= 1 ? " bug" : " bugs"}
+              </span>
+              <br />
+              {verificationInProg ? (
+                <span>Verifying locally...</span>
+              ) : proofIsVerified ? (
+                <span className="text-[#5cffb1]">You got all the bugs!</span>
+              ) : (
+                <span className="text-[#ff006e]">
+                  You didn't get all the bugs :(
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="m-auto">
+            <AlertDialogAction
+              className="bg-[#beb8db] text-[#5b23d4] hover:bg-transparent hover:border hover:border-[#5b23d4]"
+              onClick={startNewGame}
+              disabled={verificationInProg}
             >
-              Next Block{" "}
-            </button>
-          </AlertDialogTrigger> */}
-          <AlertDialogContent className="bg-[#161525] border-2 border-[#5b23d4]">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-2xl font-bold mb-4">
-                Time&apos;s up!
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                You got {resultBugs} bugs
-                <br /> Verifying locally...
-                <br /> You did not get all the hidden bugs!
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="m-auto">
-              {/* <AlertDialogCancel>Cancel</AlertDialogCancel> */}
-              <AlertDialogAction className="bg-[#beb8db] text-[#5b23d4] hover:bg-transparent hover:border hover:border-[#5b23d4]">
-                Next Block &rsaquo;
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+              {isLoading ? "Starting..." : "Next Block ›"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

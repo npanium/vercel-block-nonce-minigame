@@ -20,11 +20,32 @@ class ProofVerifier {
     }
   }
 
-  async verifyGuess(guess) {
+  async verifyGuessLocal(guess) {
     try {
-      const response = await axios.post(`${this.verifierUrl}/verify-guess`, {
-        guess: guess,
-      });
+      const response = await axios.post(
+        `${this.verifierUrl}/verify-guess/local`,
+        {
+          guess: guess,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Error verifying guess locally:",
+        error.response?.data || error.message
+      );
+      throw new Error("Failed to verify guess locally");
+    }
+  }
+
+  async verifyGuessFull(guess) {
+    try {
+      const response = await axios.post(
+        `${this.verifierUrl}/verify-guess/full`,
+        {
+          guess: guess,
+        }
+      );
       return response.data;
     } catch (error) {
       console.error(

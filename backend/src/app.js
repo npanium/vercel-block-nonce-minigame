@@ -28,7 +28,12 @@ app.use(express.json());
 const provider = ethers.getDefaultProvider(config.network);
 const gameStateManager = new GameStateManager();
 const proofVerifier = new ProofVerifier(config.rustServerUrl);
-const gameService = new GameService(gameStateManager, proofVerifier, provider);
+const gameService = new GameService(
+  gameStateManager,
+  proofVerifier,
+  provider,
+  io
+);
 
 // Apply auth middleware globally
 app.use(validateAddress);

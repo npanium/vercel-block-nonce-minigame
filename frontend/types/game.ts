@@ -26,11 +26,14 @@ export interface PlayerStats {
 
 export interface GameEndData {
   gameId: string;
+  status: string;
   result: {
     bugsFound: number;
     totalBugs: number;
     clickedCells: number;
     duration: number;
     endType: "timeout" | "manual";
+    proofVerified: boolean;
+    verificationInProgress: boolean;
   };
 }

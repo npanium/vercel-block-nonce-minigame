@@ -44,6 +44,8 @@ struct ResponseData {
 struct Response {
     success: bool,
     message: String,
+    proof_verified: bool,
+    on_chain_verified: bool,
 }
 
 async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> impl Responder {
@@ -52,10 +54,206 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
     web::Json(Response {
         success: true,
         message: "Secret set successfully".to_string(),
+        proof_verified: false,
+        on_chain_verified: false,
     })
 }
 
-async fn verify_guess(
+// async fn verify_guess(
+//     guess: web::Json<UserGuess>,
+//     state: web::Data<AppState>,
+// ) -> Result<impl Responder, actix_web::Error> {
+//     dotenv().ok();
+
+//     let secret = state.secret.lock().unwrap().clone();
+
+//     match secret {
+//         None => {
+//             return Ok(web::Json(Response {
+//                 success: false,
+//                 message: "No secret has been set. Please set a secret first.".to_string(),
+//             }));
+//         }
+//         Some(secret) => {
+//             // Setup a tracer for logging.
+//             utils::setup_logger();
+
+//             let user_guess = guess.guess;
+//             println!(
+//                 "Number of bugs guessed: {:?}, Secret: {}",
+//                 user_guess, secret
+//             );
+
+//             let mut stdin = SP1Stdin::new();
+//             stdin.write(&user_guess);
+//             stdin.write(&secret);
+
+//             let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
+//             let elf = fs::read(&elf_path).map_err(|e| {
+//                 actix_web::error::ErrorInternalServerError(format!(
+//                     "Failed to read ELF file: {}",
+//                     e
+//                 ))
+//             })?;
+
+//             println!("Setting up Prover Client with elf path-{}", elf_path);
+//             let client = ProverClient::new();
+//             let (pk, vk) = client.setup(&elf);
+
+//             println!("Generating proof...");
+//             let mut proof = client.prove(&pk, stdin).run().unwrap();
+
+//             let r = proof.public_values.read::<ResponseData>();
+//             println!("r: {:?}", r);
+//             println!("Local proof verification successful.");
+
+//             // On-chain verification
+//             let rpc_url: String = env::var("RPC_URL").expect("RPC_URL not set");
+//             println!("RPC URL: {}", rpc_url);
+
+//             let provider =
+//                 Provider::<Http>::try_from(rpc_url.clone()).expect("Failed to create provider");
+//             let chain_id = provider
+//                 .get_chainid()
+//                 .await
+//                 .expect("Failed to get chain_id");
+//             let wallet: LocalWallet = env::var("PRIVATE_KEY")
+//                 .expect("PRIVATE_KEY not set")
+//                 .parse::<LocalWallet>()
+//                 .expect("Failed to parse the wallet")
+//                 .with_chain_id(chain_id.as_u64());
+
+//             let verification_data = VerificationData {
+//                 proving_system: ProvingSystemId::SP1,
+//                 proof: bincode::serialize(&proof).expect("Failed to serialize proof"),
+//                 proof_generator_addr: wallet.address(),
+//                 vm_program_code: Some(elf.to_vec()),
+//                 verification_key: None,
+//                 pub_input: None,
+//             };
+
+//             println!("Wallet: {:?}", wallet.address());
+//             let rpc_str: &str = &rpc_url;
+//             let max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
+//                 .await
+//                 .expect("Failed to estimate fee");
+
+//             println!("Max Fee: {}", max_fee);
+
+//             let nonce = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
+//                 .await
+//                 .expect("Failed to get nonce");
+
+//             println!("Nonce: {}", nonce);
+
+//             let aligned_verification_data = submit_and_wait_verification(
+//                 BATCHER_URL,
+//                 &rpc_url,
+//                 NETWORK,
+//                 &verification_data,
+//                 max_fee,
+//                 wallet.clone(),
+//                 nonce,
+//             )
+//             .await
+//             .unwrap();
+
+//             println!(
+//                 "Proof submitted and verified successfully on batch {}",
+//                 hex::encode(aligned_verification_data.batch_merkle_root)
+//             );
+
+//             let guess_is_correct = r.b;
+
+//             if guess_is_correct {
+//                 Ok(web::Json(Response {
+//                     success: true,
+//                     message: format!(
+//                         "Congratulations! Your guess of {} bugs is correct!",
+//                         user_guess
+//                     ),
+//                 }))
+//             } else {
+//                 Ok(web::Json(Response {
+//                     success: false,
+//                     message: format!("Proof verification failed: {}. Incorrect guess", user_guess),
+//                 }))
+//             }
+//         }
+//     }
+// }
+
+// Helper function for local proof generation and verification
+async fn generate_and_verify_local(
+    user_guess: u32,
+    secret: u32,
+) -> Result<(bool, ResponseData), actix_web::Error> {
+    utils::setup_logger();
+
+    println!(
+        "Number of bugs guessed: {:?}, Secret: {}",
+        user_guess, secret
+    );
+
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&user_guess);
+    stdin.write(&secret);
+
+    let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
+    let elf = fs::read(&elf_path).map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!("Failed to read ELF file: {}", e))
+    })?;
+
+    println!("Setting up Prover Client with elf path-{}", elf_path);
+    let client = ProverClient::new();
+    let (pk, vk) = client.setup(&elf);
+
+    println!("Generating proof...");
+    let mut proof = client.prove(&pk, stdin).run().unwrap();
+
+    let r = proof.public_values.read::<ResponseData>();
+    println!("r: {:?}", r);
+
+    Ok((true, r))
+}
+
+// Local verification only
+async fn verify_guess_local(
+    guess: web::Json<UserGuess>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, actix_web::Error> {
+    let secret = state.secret.lock().unwrap().clone();
+
+    println!("Verifying locally...");
+    match secret {
+        None => Ok(web::Json(Response {
+            success: false,
+            message: "No secret has been set. Please set a secret first.".to_string(),
+            proof_verified: false,
+            on_chain_verified: false,
+        })),
+        Some(secret) => {
+            let (proof_success, r) = generate_and_verify_local(guess.guess, secret).await?;
+
+            Ok(web::Json(Response {
+                success: r.b,
+                message: if r.b {
+                    format!(
+                        "Congratulations! Your guess of {} bugs is correct!",
+                        guess.guess
+                    )
+                } else {
+                    format!("Incorrect guess: {}", guess.guess)
+                },
+                proof_verified: proof_success,
+                on_chain_verified: false,
+            }))
+        }
+    }
+}
+
+// Full verification including on-chain
+async fn verify_guess_full(
     guess: web::Json<UserGuess>,
     state: web::Data<AppState>,
 ) -> Result<impl Responder, actix_web::Error> {
@@ -64,115 +262,86 @@ async fn verify_guess(
     let secret = state.secret.lock().unwrap().clone();
 
     match secret {
-        None => {
-            return Ok(web::Json(Response {
-                success: false,
-                message: "No secret has been set. Please set a secret first.".to_string(),
-            }));
-        }
+        None => Ok(web::Json(Response {
+            success: false,
+            message: "No secret has been set. Please set a secret first.".to_string(),
+            proof_verified: false,
+            on_chain_verified: false,
+        })),
         Some(secret) => {
-            // Setup a tracer for logging.
-            utils::setup_logger();
+            let (proof_success, r) = generate_and_verify_local(guess.guess, secret).await?;
 
-            let user_guess = guess.guess;
-            println!(
-                "Number of bugs guessed: {:?}, Secret: {}",
-                user_guess, secret
-            );
+            // Only proceed with on-chain verification if the local proof is successful and correct
+            if proof_success && r.b {
+                // On-chain verification
+                let rpc_url: String = env::var("RPC_URL").expect("RPC_URL not set");
+                println!("RPC URL: {}", rpc_url);
 
-            let mut stdin = SP1Stdin::new();
-            stdin.write(&user_guess);
-            stdin.write(&secret);
+                let provider =
+                    Provider::<Http>::try_from(rpc_url.clone()).expect("Failed to create provider");
+                let chain_id = provider
+                    .get_chainid()
+                    .await
+                    .expect("Failed to get chain_id");
+                let wallet: LocalWallet = env::var("PRIVATE_KEY")
+                    .expect("PRIVATE_KEY not set")
+                    .parse::<LocalWallet>()
+                    .expect("Failed to parse the wallet")
+                    .with_chain_id(chain_id.as_u64());
 
-            let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
-            let elf = fs::read(&elf_path).map_err(|e| {
-                actix_web::error::ErrorInternalServerError(format!(
-                    "Failed to read ELF file: {}",
-                    e
-                ))
-            })?;
+                let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
+                let elf = fs::read(&elf_path)?;
 
-            println!("Setting up Prover Client with elf path-{}", elf_path);
-            let client = ProverClient::new();
-            let (pk, vk) = client.setup(&elf);
+                let verification_data = VerificationData {
+                    proving_system: ProvingSystemId::SP1,
+                    proof: bincode::serialize(&r).expect("Failed to serialize proof"),
+                    proof_generator_addr: wallet.address(),
+                    vm_program_code: Some(elf.to_vec()),
+                    verification_key: None,
+                    pub_input: None,
+                };
 
-            println!("Generating proof...");
-            let mut proof = client.prove(&pk, stdin).run().unwrap();
+                let rpc_str: &str = &rpc_url;
+                let max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
+                    .await
+                    .expect("Failed to estimate fee");
 
-            let r = proof.public_values.read::<ResponseData>();
-            println!("r: {:?}", r);
-            println!("Local proof verification successful.");
+                let nonce = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
+                    .await
+                    .expect("Failed to get nonce");
 
-            // On-chain verification
-            let rpc_url: String = env::var("RPC_URL").expect("RPC_URL not set");
-            println!("RPC URL: {}", rpc_url);
-
-            let provider =
-                Provider::<Http>::try_from(rpc_url.clone()).expect("Failed to create provider");
-            let chain_id = provider
-                .get_chainid()
+                let aligned_verification_data = submit_and_wait_verification(
+                    BATCHER_URL,
+                    &rpc_url,
+                    NETWORK,
+                    &verification_data,
+                    max_fee,
+                    wallet.clone(),
+                    nonce,
+                )
                 .await
-                .expect("Failed to get chain_id");
-            let wallet: LocalWallet = env::var("PRIVATE_KEY")
-                .expect("PRIVATE_KEY not set")
-                .parse::<LocalWallet>()
-                .expect("Failed to parse the wallet")
-                .with_chain_id(chain_id.as_u64());
+                .unwrap();
 
-            let verification_data = VerificationData {
-                proving_system: ProvingSystemId::SP1,
-                proof: bincode::serialize(&proof).expect("Failed to serialize proof"),
-                proof_generator_addr: wallet.address(),
-                vm_program_code: Some(elf.to_vec()),
-                verification_key: None,
-                pub_input: None,
-            };
+                println!(
+                    "Proof submitted and verified successfully on batch {}",
+                    hex::encode(aligned_verification_data.batch_merkle_root)
+                );
 
-            println!("Wallet: {:?}", wallet.address());
-            let rpc_str: &str = &rpc_url;
-            let max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
-                .await
-                .expect("Failed to estimate fee");
-
-            println!("Max Fee: {}", max_fee);
-
-            let nonce = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
-                .await
-                .expect("Failed to get nonce");
-
-            println!("Nonce: {}", nonce);
-
-            let aligned_verification_data = submit_and_wait_verification(
-                BATCHER_URL,
-                &rpc_url,
-                NETWORK,
-                &verification_data,
-                max_fee,
-                wallet.clone(),
-                nonce,
-            )
-            .await
-            .unwrap();
-
-            println!(
-                "Proof submitted and verified successfully on batch {}",
-                hex::encode(aligned_verification_data.batch_merkle_root)
-            );
-
-            let guess_is_correct = r.b;
-
-            if guess_is_correct {
                 Ok(web::Json(Response {
                     success: true,
                     message: format!(
-                        "Congratulations! Your guess of {} bugs is correct!",
-                        user_guess
+                        "Congratulations! Your guess of {} bugs is correct and verified on-chain!",
+                        guess.guess
                     ),
+                    proof_verified: true,
+                    on_chain_verified: true,
                 }))
             } else {
                 Ok(web::Json(Response {
                     success: false,
-                    message: format!("Proof verification failed: {}. Incorrect guess", user_guess),
+                    message: format!("Incorrect guess: {}", guess.guess),
+                    proof_verified: proof_success,
+                    on_chain_verified: false,
                 }))
             }
         }
@@ -189,21 +358,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             .route("/set-secret", web::post().to(set_secret))
-            .route("/verify-guess", web::post().to(verify_guess))
+            .route("/verify-guess/local", web::post().to(verify_guess_local))
+            .route("/verify-guess/full", web::post().to(verify_guess_full))
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
 }
-
-// // For Testing and experimentation. Run generate_proofs first.
-// // Load pre-computed proof
-// let proof_path = format!("proofs/proof_{}.bin", num_bugs);
-// let proof_bytes = fs::read(&proof_path).map_err(|e| {
-//     actix_web::error::ErrorInternalServerError(format!("Failed to read proof file: {}", e))
-// })?;
-
-// // Deserialize the proof
-// let proof = bincode::deserialize(&proof_bytes).map_err(|e| {
-//     actix_web::error::ErrorInternalServerError(format!("Failed to deserialize proof: {}", e))
-// })?;

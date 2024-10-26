@@ -67,11 +67,13 @@ function setupGameRoutes(gameService, io) {
       const result = await gameService.endGame(gameId, "manual");
 
       // Emit game ended event through socket
+      console.log(`About to emit gameEnded event for game ${gameId}`);
       io.to(gameId).emit("gameEnded", {
         gameId,
         result,
         endType: "manual",
       });
+      console.log("Event emitted");
 
       res.json({
         success: true,
