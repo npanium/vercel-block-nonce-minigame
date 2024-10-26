@@ -23,3 +23,14 @@ export interface Position {
 export interface PlayerStats {
   gamesPlayed: number;
 }
+
+export interface GameEndData {
+  gameId: string;
+  result: {
+    bugsFound: number;
+    totalBugs: number;
+    clickedCells: number;
+    duration: number;
+    endType: "timeout" | "manual";
+  };
+}

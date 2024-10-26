@@ -3,7 +3,7 @@ const cors = require("cors");
 const ethers = require("ethers");
 const config = require("./config/config");
 const GameStateManager = require("./services/GameStateManager");
-const ProofGenerator = require("./services/ProofGenerator");
+const ProofVerifier = require("./services/ProofVerifier");
 const GameService = require("./services/GameService");
 const setupGameRoutes = require("./routes/gameRoutes");
 const { validateAddress } = require("./middlewares/auth");
@@ -11,6 +11,14 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000", // frontend URL
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 // Middleware
 app.use(cors());
@@ -19,14 +27,14 @@ app.use(express.json());
 // Setup services
 const provider = ethers.getDefaultProvider(config.network);
 const gameStateManager = new GameStateManager();
-const proofGenerator = new ProofGenerator(config.rustServerUrl);
-const gameService = new GameService(gameStateManager, proofGenerator, provider);
+const proofVerifier = new ProofVerifier(config.rustServerUrl);
+const gameService = new GameService(gameStateManager, proofVerifier, provider);
 
 // Apply auth middleware globally
 app.use(validateAddress);
 
 // Setup routes with the new game service
-app.use("/api/game", setupGameRoutes(gameService));
+app.use("/api/game", setupGameRoutes(gameService, io));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -53,4 +61,4 @@ app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-module.exports = app;
+module.exports = { app, server, io };

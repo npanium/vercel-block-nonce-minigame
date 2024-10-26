@@ -12,7 +12,13 @@ import { LoadingComponent } from "@/components/LoadingComponent";
 import { useEffect, useState } from "react";
 import { Position } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
-import { clickCell, getPlayerStats } from "@/lib/api";
+import {
+  cleanupGameListeners,
+  clickCell,
+  getPlayerStats,
+  initializeSocket,
+  setupGameEndListener,
+} from "@/lib/api";
 import IsometricGrid from "@/components/IsometricGrid";
 import {
   AlertDialog,
@@ -31,6 +37,7 @@ export default function GamePage() {
   const { address } = useAccount();
   const { toast } = useToast();
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [resultBugs, setResultBugs] = useState(0);
   // Initialize game and get configuration
   const {
     gameConfig,
@@ -69,6 +76,31 @@ export default function GamePage() {
       fetchStats();
     }
   }, [address, gameId]);
+
+  useEffect(() => {
+    // Initialize socket connection
+    const socket = initializeSocket();
+
+    // Setup game end listener
+    setupGameEndListener(gameId, (data) => {
+      // Handle game end
+      if (data.result.endType === "timeout") {
+        console.log("Game ended due to timeout");
+      } else {
+        console.log("Game ended manually");
+      }
+
+      // Update UI with results
+      console.log(`Found ${data.result.totalBugs} bugs`);
+      setResultBugs(data.result.totalBugs);
+      // You might want to trigger a state update or router navigation here
+    });
+
+    // Cleanup on component unmount
+    return () => {
+      cleanupGameListeners(gameId);
+    };
+  }, [gameId]);
 
   if (!gameConfig) {
     return <LoadingComponent />;
@@ -167,13 +199,9 @@ export default function GamePage() {
                 Time&apos;s up!
               </AlertDialogTitle>
               <AlertDialogDescription>
-                You got __ bugs
+                You got {resultBugs} bugs
                 <br /> Verifying locally...
                 <br /> You did not get all the hidden bugs!
-                {/* 
-                You got all the bugs! Points: __
-                Proceed to next block while the proof is being verified on-chain
-                */}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="m-auto">

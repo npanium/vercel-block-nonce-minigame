@@ -1,8 +1,29 @@
 class GameService {
-  constructor(gameStateManager, proofGenerator, provider) {
+  constructor(gameStateManager, proofVerifier, provider) {
     this.gameStateManager = gameStateManager;
-    this.proofGenerator = proofGenerator;
+    this.proofVerifier = proofVerifier;
     this.provider = provider;
+
+    // Game configuration constants
+    this.GAME_CONFIG = {
+      MIN_BUGS: 5,
+      MAX_BUGS: 10,
+      MIN_GRID_SIZE: 8,
+      MAX_GRID_SIZE: 16,
+      GAME_DURATION: 30000, // 30 seconds
+    };
+  }
+
+  // Helper method to validate game access
+  validateGameAccess(gameId, address) {
+    const game = this.gameStateManager.getGame(gameId);
+    if (!game) {
+      throw new Error("Game not found");
+    }
+    if (game.address !== address) {
+      throw new Error("Not authorized for this game");
+    }
+    return game;
   }
 
   async createGame(address) {
@@ -11,8 +32,11 @@ class GameService {
     }
 
     if (this.gameStateManager.hasActiveGame(address)) {
-      const gameId = this.gameStateManager.activePlayerGames.get(address);
-      throw new Error(`Player already has active game: ${gameId}`);
+      throw new Error(
+        `Player already has active game: ${this.gameStateManager.activePlayerGames.get(
+          address
+        )}`
+      );
     }
 
     const gameId = Date.now().toString();
@@ -27,52 +51,9 @@ class GameService {
     return gameId;
   }
 
-  async startGame(gameId, address) {
-    const game = this.gameStateManager.getGame(gameId);
-    if (!game) {
-      throw new Error("Game not found");
-    }
-
-    if (game.address !== address) {
-      throw new Error("Not authorized to start this game");
-    }
-
-    if (game.config) {
-      throw new Error("Game already started");
-    }
-
-    // Initialize game configuration
-    const gameConfig = this.generateGameConfig();
-    game.config = gameConfig;
-    game.startTime = Date.now();
-    game.clickedCells = [];
-    game.isEnded = false;
-
-    // Set automatic game end timer
-    game.timeoutId = setTimeout(async () => {
-      try {
-        await this.endGame(gameId, "timeout");
-      } catch (error) {
-        console.error(`Error ending game ${gameId}:`, error);
-      }
-    }, gameConfig.gameDuration);
-
-    return {
-      gameId,
-      gridSize: gameConfig.gridSize,
-      bugs: gameConfig.bugs,
-      numBugs: gameConfig.bugs.length,
-      startTime: game.startTime,
-      duration: gameConfig.gameDuration / 1000,
-    };
-  }
-
   generateGameConfig() {
-    const MIN_BUGS = 5;
-    const MAX_BUGS = 10;
-    const MIN_GRID_SIZE = 8;
-    const MAX_GRID_SIZE = 16;
-    const gameDuration = 30000; // 3000 seconds
+    const { MIN_BUGS, MAX_BUGS, MIN_GRID_SIZE, MAX_GRID_SIZE, GAME_DURATION } =
+      this.GAME_CONFIG;
 
     const gridSize =
       Math.floor(Math.random() * (MAX_GRID_SIZE - MIN_GRID_SIZE + 1)) +
@@ -80,92 +61,154 @@ class GameService {
     const numBugs =
       Math.floor(Math.random() * (MAX_BUGS - MIN_BUGS + 1)) + MIN_BUGS;
 
-    const bugs = [];
-    for (let i = 0; i < numBugs; i++) {
-      let x, y;
-      do {
-        x = Math.floor(Math.random() * gridSize);
-        y = Math.floor(Math.random() * gridSize);
-      } while (bugs.some((bug) => bug.x === x && bug.y === y));
-      bugs.push({ x, y });
+    // Generate unique bug positions
+    const bugs = new Set();
+    while (bugs.size < numBugs) {
+      const x = Math.floor(Math.random() * gridSize);
+      const y = Math.floor(Math.random() * gridSize);
+      bugs.add(JSON.stringify({ x, y }));
     }
 
-    return { gridSize, bugs, gameDuration };
+    return {
+      gridSize,
+      bugs: Array.from(bugs).map((bug) => JSON.parse(bug)),
+      gameDuration: GAME_DURATION,
+    };
+  }
+
+  async startGame(gameId, address) {
+    const game = this.validateGameAccess(gameId, address);
+
+    if (game.config) {
+      throw new Error("Game already started");
+    }
+
+    // Initialize game configuration
+    const gameConfig = this.generateGameConfig();
+
+    // Set the secret (number of bugs) in the proof verifier
+    try {
+      const secretSetRes = await this.proofVerifier.setSecret(
+        gameConfig.bugs.length
+      );
+      console.log(`Secret set. ${JSON.stringify(secretSetRes)}`);
+    } catch (error) {
+      throw new Error(
+        `Failed to initialize game verification: ${error.message}`
+      );
+    }
+
+    const updates = {
+      config: gameConfig,
+      startTime: Date.now(),
+      clickedCells: [],
+      isEnded: false,
+    };
+
+    // Update game state
+    this.gameStateManager.updateGame(gameId, updates);
+
+    // Set automatic game end timer
+    this.setGameEndTimer(gameId, gameConfig.gameDuration);
+
+    return {
+      gameId,
+      gridSize: gameConfig.gridSize,
+      bugs: gameConfig.bugs,
+      numBugs: gameConfig.bugs.length,
+      startTime: updates.startTime,
+      duration: gameConfig.gameDuration / 1000,
+    };
+  }
+
+  setGameEndTimer(gameId, duration) {
+    const game = this.gameStateManager.getGame(gameId);
+    if (game.timeoutId) {
+      clearTimeout(game.timeoutId);
+    }
+
+    game.timeoutId = setTimeout(async () => {
+      try {
+        await this.endGame(gameId, "timeout");
+      } catch (error) {
+        console.error(`Error ending game ${gameId}:`, error);
+      }
+    }, duration);
   }
 
   async handleClick(gameId, x, y, address) {
-    const game = this.gameStateManager.getGame(gameId);
-    if (!game) {
-      throw new Error("Game not found");
-    }
-
-    if (game.address !== address) {
-      throw new Error("Not authorized to play this game");
-    }
+    const game = this.validateGameAccess(gameId, address);
 
     if (game.isEnded) {
       throw new Error("Game has already ended");
     }
 
     game.clickedCells.push({ x, y });
+    this.gameStateManager.updateGame(gameId, game);
     return { success: true };
   }
 
   async endGame(gameId, endType = "timeout") {
     const game = this.gameStateManager.getGame(gameId);
-    if (!game || game.isEnded) return;
+    if (!game || game.isEnded) return null;
 
-    game.isEnded = true;
-    game.endType = endType;
-    game.endTime = Date.now();
+    // Clear any existing timeout
+    if (game.timeoutId) {
+      clearTimeout(game.timeoutId);
+    }
 
+    const updates = {
+      isEnded: true,
+      endType,
+      endTime: Date.now(),
+      timeoutId: null,
+    };
+
+    // Calculate game statistics
     const bugsFound = game.clickedCells.filter((cell) =>
       game.config.bugs.some((bug) => bug.x === cell.x && bug.y === cell.y)
     ).length;
 
-    const gameResult = {
-      bugsFound,
-      totalBugs: game.config.bugs.length,
-      clickedCells: game.clickedCells.length,
-      duration: game.endTime - game.startTime,
-      endType,
-    };
+    try {
+      // Verify the bugs found with the proof verifier
+      const verificationResult = await this.proofVerifier.verifyGuess(
+        bugsFound
+      );
 
-    game.result = gameResult;
+      const gameResult = {
+        bugsFound,
+        totalBugs: game.config.bugs.length,
+        clickedCells: game.clickedCells.length,
+        duration: Date.now() - game.startTime,
+        endType,
+        proofVerified: verificationResult.success,
+      };
 
-    if (this.proofGenerator) {
-      try {
-        const alignedVerificationData = await this.proofGenerator.generateProof(
-          game.config.bugs.length
-        );
-        game.verificationData = alignedVerificationData;
-      } catch (error) {
-        console.error(`Error generating proof for game ${gameId}:`, error);
-      }
+      updates.result = gameResult;
+      this.gameStateManager.updateGame(gameId, updates);
+
+      return gameResult;
+    } catch (error) {
+      console.error(`Error verifying proof for game ${gameId}:`, error);
+      throw new Error("Failed to verify game result");
     }
-
-    return gameResult;
   }
 
   async processTransaction(gameId, signedTransaction, address) {
-    const game = this.gameStateManager.getGame(gameId);
-    if (!game) {
-      throw new Error("Game not found");
-    }
-
-    if (game.address !== address) {
-      throw new Error("Not authorized to end this game");
-    }
+    const game = this.validateGameAccess(gameId, address);
 
     if (!game.isEnded) {
       throw new Error("Game is still in progress");
     }
 
-    const txResponse = await this.provider.sendTransaction(signedTransaction);
-    await txResponse.wait();
-
-    this.gameStateManager.removeGame(gameId);
-    return txResponse.hash;
+    try {
+      const txResponse = await this.provider.sendTransaction(signedTransaction);
+      await txResponse.wait();
+      this.gameStateManager.removeGame(gameId);
+      return txResponse.hash;
+    } catch (error) {
+      throw new Error(`Transaction failed: ${error.message}`);
+    }
   }
 }
 
