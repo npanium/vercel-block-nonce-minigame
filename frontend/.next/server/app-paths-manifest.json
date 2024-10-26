@@ -1,3 +1,4 @@
 {
-  "/game/page": "app/game/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/game/[gameId]/page": "app/game/[gameId]/page.js"
 }

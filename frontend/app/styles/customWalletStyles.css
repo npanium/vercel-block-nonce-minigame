@@ -1,5 +1,9 @@
 [data-rk] {
   --rk-custom-colors-accentColor: #6123ff;
+  --rk-custom-colors-connectButtonBackground: #6123ff;
+  --rk-custom-colors-connectButtonText:#e2dcfe;
+  --rk-custom-colors-profileAction: #6123ff;
+  --rk-custom-colors-profileActionHover: #6123ff88;
   --rk-custom-radii-connectButton: 0.575rem;
   --rk-custom-radii-actionButton: 0.575rem;
   --rk-custom-radii: 0.575rem;
@@ -1164,13 +1168,13 @@
   background: var(--rk-colors-closeButtonBackground);
 }
 [data-rk] .ju367va3 {
-  background: var(--rk-colors-connectButtonBackground);
+  background: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367va4:hover {
-  background: var(--rk-colors-connectButtonBackground);
+  background: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367va5:active {
-  background: var(--rk-colors-connectButtonBackground);
+  background: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367va6 {
   background: var(--rk-colors-connectButtonBackgroundError);
@@ -1191,13 +1195,13 @@
   background: var(--rk-colors-connectButtonInnerBackground);
 }
 [data-rk] .ju367vac {
-  background: var(--rk-colors-connectButtonText);
+  background: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vad:hover {
-  background: var(--rk-colors-connectButtonText);
+  background: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vae:active {
-  background: var(--rk-colors-connectButtonText);
+  background: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vaf {
   background: var(--rk-colors-connectButtonTextError);
@@ -1326,22 +1330,22 @@
   background: var(--rk-custom-colors-modalTextSecondary);
 }
 [data-rk] .ju367vbl {
-  background: var(--rk-colors-profileAction);
+  background: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367vbm:hover {
-  background: var(--rk-colors-profileAction);
+  background: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367vbn:active {
-  background: var(--rk-colors-profileAction);
+  background: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367vbo {
-  background: var(--rk-colors-profileActionHover);
+  background: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vbp:hover {
-  background: var(--rk-colors-profileActionHover);
+  background: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vbq:active {
-  background: var(--rk-colors-profileActionHover);
+  background: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vbr {
   background: var(--rk-colors-profileForeground);
@@ -1434,13 +1438,13 @@
   border-color: var(--rk-colors-closeButtonBackground);
 }
 [data-rk] .ju367vcl {
-  border-color: var(--rk-colors-connectButtonBackground);
+  border-color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vcm:hover {
-  border-color: var(--rk-colors-connectButtonBackground);
+  border-color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vcn:active {
-  border-color: var(--rk-colors-connectButtonBackground);
+  border-color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vco {
   border-color: var(--rk-colors-connectButtonBackgroundError);
@@ -1461,13 +1465,13 @@
   border-color: var(--rk-colors-connectButtonInnerBackground);
 }
 [data-rk] .ju367vcu {
-  border-color: var(--rk-colors-connectButtonText);
+  border-color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vcv:hover {
-  border-color: var(--rk-colors-connectButtonText);
+  border-color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vcw:active {
-  border-color: var(--rk-colors-connectButtonText);
+  border-color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vcx {
   border-color: var(--rk-colors-connectButtonTextError);
@@ -1596,13 +1600,13 @@
   border-color: var(--rk-custom-colors-modalTextSecondary);
 }
 [data-rk] .ju367ve3 {
-  border-color: var(--rk-colors-profileAction);
+  border-color: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367ve4:hover {
-  border-color: var(--rk-colors-profileAction);
+  border-color: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367ve5:active {
-  border-color: var(--rk-colors-profileAction);
+  border-color: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367ve6 {
   border-color: var(--rk-colors-profileActionHover);
@@ -1758,13 +1762,13 @@
   color: var(--rk-colors-closeButtonBackground);
 }
 [data-rk] .ju367vfl {
-  color: var(--rk-colors-connectButtonBackground);
+  color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vfm:hover {
-  color: var(--rk-colors-connectButtonBackground);
+  color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vfn:active {
-  color: var(--rk-colors-connectButtonBackground);
+  color: var(--rk-custom-colors-connectButtonBackground);
 }
 [data-rk] .ju367vfo {
   color: var(--rk-colors-connectButtonBackgroundError);
@@ -1785,13 +1789,13 @@
   color: var(--rk-colors-connectButtonInnerBackground);
 }
 [data-rk] .ju367vfu {
-  color: var(--rk-colors-connectButtonText);
+  color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vfv:hover {
-  color: var(--rk-colors-connectButtonText);
+  color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vfw:active {
-  color: var(--rk-colors-connectButtonText);
+  color: var(--rk-custom-colors-connectButtonText);
 }
 [data-rk] .ju367vfx {
   color: var(--rk-colors-connectButtonTextError);
@@ -1920,22 +1924,22 @@
   color: var(--rk-custom-colors-modalTextSecondary);
 }
 [data-rk] .ju367vh3 {
-  color: var(--rk-colors-profileAction);
+  color: var(--rk-customm-colors-profileAction);
 }
 [data-rk] .ju367vh4:hover {
-  color: var(--rk-colors-profileAction);
+  color: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367vh5:active {
-  color: var(--rk-colors-profileAction);
+  color: var(--rk-custom-colors-profileAction);
 }
 [data-rk] .ju367vh6 {
-  color: var(--rk-colors-profileActionHover);
+  color: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vh7:hover {
-  color: var(--rk-colors-profileActionHover);
+  color: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vh8:active {
-  color: var(--rk-colors-profileActionHover);
+  color: var(--rk-custom-colors-profileActionHover);
 }
 [data-rk] .ju367vh9 {
   color: var(--rk-colors-profileForeground);
