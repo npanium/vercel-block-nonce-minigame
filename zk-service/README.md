@@ -1,4 +1,4 @@
-# Bug Hunt Verification Server
+# Block-Nonce (Mini Game) Verification Server
 
 A Rust-based backend service handling zero-knowledge proof generation and verification for the Block-Nonce game using SP1 and Aligned Layer.
 
@@ -133,7 +133,7 @@ rust-backend/
 ├── script/
 │   ├─── src/
 │   │   └── bin/
-│   │       └── main.rsserver.rs     # Server implementation
+│   │       └── server.rs     # Server implementation
 │   └── Cargo.toml
 └── program/
     ├── src/
@@ -143,13 +143,7 @@ rust-backend/
 
 ### Building
 
-For development:
-
-```bash
-cargo build
-```
-
-For production:
+For development/production:
 
 ```bash
 cargo build --release
