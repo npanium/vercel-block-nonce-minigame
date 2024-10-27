@@ -1,6 +1,6 @@
-# Bug Hunt Game Backend
+# Block-Nonce (Mini Game) Backend
 
-A Node.js backend service for the Bug Hunt game, handling game state management, proof verification integration, and real-time game updates using Socket.IO.
+A Node.js backend service for the Block-Nonce game, handling game state management, proof verification integration, and real-time game updates using Socket.IO.
 
 ## Table of Contents
 
@@ -11,6 +11,7 @@ A Node.js backend service for the Bug Hunt game, handling game state management,
 - [API Documentation](#api-documentation)
 - [Socket Events](#socket-events)
 - [Services](#services)
+- [Future Development](#future-development)
 
 ## Prerequisites
 
@@ -34,7 +35,7 @@ cd <project-directory>/backend
 npm install
 ```
 
-3. Create a `.env` file in the root directory with the following variables:
+3. Create an optional `.env` file in the root directory with the following variables:
 
 ```env
 PORT=3001
@@ -184,12 +185,53 @@ Handles:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Future Development
+
+### Persistence & Data Management
+
+- [ ] Implement PostgreSQL/MongoDB database integration
+  - Store game states, player statistics, and session data
+  - Enable historical analysis and leaderboards
+  - Track player progress and achievements
+
+### Performance Optimization
+
+- [ ] Implement batch verification system
+  - Buffer game results during player sessions
+  - Perform parallel verification on Aligned at session end
+  - Reduce gas costs through batched reward distribution
+  - Optimize proof generation and verification pipeline
+
+### Tokenomics & Rewards
+
+- [ ] Implement sophisticated scoring system
+  - Calculate points based on accuracy ratio (correct guesses/total clicks)
+  - Apply time-based multipliers for faster completions
+  - Award bonus points for streak completions
+- [ ] Smart contract integration for token rewards
+  - Batch reward distributions for gas efficiency
+  - Implement token vesting/cooldown periods
+  - Add anti-gaming mechanisms
+
+### Game Mechanics
+
+- [ ] Session-based gameplay
+  - Track multi-game sessions
+  - Implement progressive difficulty scaling
+  - Add combo bonuses for consecutive successful games
+- [ ] Enhanced statistics tracking
+  - Track player performance metrics
+  - Generate player skill profiles
+  - Create global and friend-based leaderboards
+
+### API Enhancements
+
+- [ ] Add endpoints for:
+  - Session management
+  - Batch verification status
+  - Token claim/distribution
+  - Player rankings and achievements
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details
-
-## To-dos
-
-- Add a DB to log and store player game states, scores, etc.
-- Points/Tokens based on the ratio of number of correct guesses and number of clicks
-- Parallel verification on Aligned at the end of a session (consisting of several games). Save all the secrets and guesses as pairs and send them to batcher at the end of a session. Batch the rewards token reques.
