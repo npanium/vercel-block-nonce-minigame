@@ -7,10 +7,10 @@ class GameService {
 
     // Game configuration constants
     this.GAME_CONFIG = {
-      MIN_BUGS: 5,
-      MAX_BUGS: 10,
+      MIN_BUGS: 1, //change back to 5
+      MAX_BUGS: 2, //change back to 10
       MIN_GRID_SIZE: 8,
-      MAX_GRID_SIZE: 16,
+      MAX_GRID_SIZE: 9, //change back to 16
       GAME_DURATION: 35000, // 35 seconds
     };
   }
@@ -181,7 +181,6 @@ class GameService {
     };
 
     // Emit initial result immediately
-    console.log(`Emitting initial gameEnded event for game ${gameId}`);
     this.io.to(gameId).emit("gameEnded", {
       gameId,
       result: initialResult,
@@ -226,6 +225,120 @@ class GameService {
     } catch (error) {
       console.error(`Error verifying proof for game ${gameId}:`, error);
       throw new Error("Failed to verify game result");
+    }
+  }
+
+  async endGameWithFullVerification(
+    gameId,
+    endType = "manual",
+    contractInstance = null
+  ) {
+    const game = this.gameStateManager.getGame(gameId);
+    if (!game) return null;
+
+    if (game.timeoutId) {
+      clearTimeout(game.timeoutId);
+    }
+
+    const bugsFound = game.clickedCells.filter((cell) =>
+      game.config.bugs.some((bug) => bug.x === cell.x && bug.y === cell.y)
+    ).length;
+
+    // Initial result and emission
+    const initialResult = {
+      bugsFound,
+      totalBugs: game.config.bugs.length,
+      clickedCells: game.clickedCells.length,
+      duration: Date.now() - game.startTime,
+      endType,
+      proofVerified: false,
+      verificationInProgress: true,
+      onChainVerified: false,
+    };
+
+    console.log(
+      `Emitting initial gameEnded Full verification event for game ${gameId}`
+    );
+    this.io.to(gameId).emit("gameEndedFull", {
+      gameId,
+      result: initialResult,
+      endType,
+      status: "verifying",
+    });
+
+    try {
+      console.log("Trying for full verification GS");
+      // Full verification (local + on-chain)
+      const verificationResult = await this.proofVerifier.verifyGuessFull(
+        bugsFound
+      );
+
+      // If verification succeeded and there's a contract instance
+      let contractResult = null;
+      if (
+        verificationResult.success &&
+        verificationResult.on_chain_verified &&
+        contractInstance
+      ) {
+        try {
+          // Call smart contract method
+          const tx = await contractInstance.verifyGameResult(
+            gameId,
+            bugsFound,
+            verificationResult.proof_data // Assuming this comes from verification result
+          );
+          await tx.wait();
+          contractResult = tx.hash;
+        } catch (contractError) {
+          console.error("Contract interaction failed:", contractError);
+          // Emit contract failure but don't throw
+          this.io.to(gameId).emit("gameEndedFull", {
+            gameId,
+            status: "contractError",
+            error: contractError.message,
+          });
+        }
+      }
+
+      const finalResult = {
+        ...initialResult,
+        proofVerified: verificationResult.success,
+        verificationInProgress: false,
+        onChainVerified: verificationResult.on_chain_verified,
+        contractTxHash: contractResult,
+      };
+
+      this.gameStateManager.updateGame(gameId, {
+        isEnded: true,
+        endType,
+        endTime: Date.now(),
+        timeoutId: null,
+        result: finalResult,
+      });
+
+      console.log(
+        `Emitting final gameEnded event with full verification for game ${gameId}`
+      );
+      this.io.to(gameId).emit("gameEndedFull", {
+        gameId,
+        result: finalResult,
+        endType,
+        status: "complete",
+      });
+
+      return finalResult;
+    } catch (error) {
+      // Emit error status
+      this.io.to(gameId).emit("gameEndedFull", {
+        gameId,
+        result: initialResult,
+        endType,
+        status: "error",
+        error: error.message,
+      });
+
+      console.error(`Error in full verification for game ${gameId}:`, error);
+      throw new Error("Failed to complete full verification");
     }
   }
 

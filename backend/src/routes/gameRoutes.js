@@ -71,7 +71,6 @@ function setupGameRoutes(gameService, io) {
       io.to(gameId).emit("gameEnded", {
         gameId,
         result,
-        endType: "manual",
       });
       console.log("Event emitted");
 
@@ -82,6 +81,43 @@ function setupGameRoutes(gameService, io) {
       });
     } catch (error) {
       console.error(`Error ending game ${gameId}:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // If the user request full verification after successful local verification
+  router.post("/end-game/full", async (req, res) => {
+    const { gameId, address } = req.body;
+    const contractAddress = "";
+
+    try {
+      console.log("BE- trying for full verification");
+
+      let contractInstance = null;
+      if (contractAddress) {
+        contractInstance = new ethers.Contract(
+          contractAddress,
+          VERIFIER_CONTRACT_ABI,
+          provider
+        );
+      }
+
+      const result = await gameService.endGameWithFullVerification(
+        gameId,
+        "manual"
+      );
+      console.log(`Result: ${JSON.stringify(result)}`);
+
+      res.json({
+        success: true,
+        gameId,
+        result,
+      });
+    } catch (error) {
+      console.error(
+        `Error ending game with full verification ${gameId}:`,
+        error
+      );
       res.status(500).json({ error: error.message });
     }
   });

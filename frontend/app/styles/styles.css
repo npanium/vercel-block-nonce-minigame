@@ -102,3 +102,25 @@
     transform: scale(1);
   }
 }
+
+/* Swish Spinner */
+.wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ball {
+  position: absolute;
+  border-radius: 3px;
+  animation: ball-motion 0.9s ease infinite;
+  transition: all 0.3s ease;
+}
+
+@keyframes ball-motion {
+  50% {
+    transform: scale(0);
+    background-color: var(--backColor);
+  }
+}

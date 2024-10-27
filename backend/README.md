@@ -71,3 +71,4 @@ GET <localhost>/api/game/game-state/:gameId?address=0x...
 
 - Add a DB to log and store player game states, scores, etc.
 - Points/Tokens based on the ratio of number of correct guesses and number of clicks
+- Parallel verification on Aligned at the end of a session (consisting of several games). Save all the secrets and guesses as pairs and send them to batcher at the end of a session. Batch the rewards token reques.

@@ -171,9 +171,9 @@ export const updateGameState = async (
 export const endGame = async (
   gameId: string,
   address: string
-): Promise<{ success: boolean }> => {
+): Promise<GameEndData> => {
   try {
-    const response = await apiClient.post<{ success: boolean }>(
+    const response = await apiClient.post<GameEndData>(
       `/end-game`,
       {
         gameId,
@@ -182,6 +182,34 @@ export const endGame = async (
       { timeout: 120000 } // 120 seconds timeout
     );
     console.log(`End game response data: ${JSON.stringify(response.data)}`);
+    return response.data;
+  } catch (error) {
+    return handleApiError(error as AxiosError);
+  }
+};
+
+export const endGameWithFullVerification = async (
+  gameId: string,
+  address: string,
+  contractAddress?: string
+): Promise<GameEndData> => {
+  try {
+    console.log("FE- full verification trying");
+    const response = await apiClient.post<GameEndData>(
+      `/end-game/full`,
+      {
+        gameId,
+        address,
+      },
+      {
+        timeout: 300000, // 5 minutes timeout for full verification
+      }
+    );
+    console.log(
+      `End game full verification response data: ${JSON.stringify(
+        response.data
+      )}`
+    );
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);

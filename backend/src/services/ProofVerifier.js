@@ -22,6 +22,7 @@ class ProofVerifier {
 
   async verifyGuessLocal(guess) {
     try {
+      console.log("Contacting Rust server");
       const response = await axios.post(
         `${this.verifierUrl}/verify-guess/local`,
         {
@@ -40,6 +41,7 @@ class ProofVerifier {
 
   async verifyGuessFull(guess) {
     try {
+      console.log("Contacting Rust server for full verification");
       const response = await axios.post(
         `${this.verifierUrl}/verify-guess/full`,
         {

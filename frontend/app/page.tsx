@@ -4,9 +4,6 @@ import Image from "next/image";
 import heroImage from "../public/hero-logo.png";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useToast } from "@/hooks/use-toast";
-import { useAccount } from "wagmi";
-import { createGame } from "@/lib/api";
-import { useRouter } from "next/navigation";
 import AnimatedBlockNonce from "../public/block-nonce_animated.svg";
 import { useGameCreation } from "@/hooks/useGameCreation";
 

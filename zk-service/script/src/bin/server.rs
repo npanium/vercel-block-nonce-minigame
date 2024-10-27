@@ -17,7 +17,6 @@ use std::sync::Mutex;
 
 const BATCHER_URL: &str = "wss://batcher.alignedlayer.com";
 const NETWORK: Network = Network::Holesky;
-const CHAIN_ID: u64 = 17000;
 
 // Struct to hold the game state
 struct AppState {
@@ -72,6 +71,8 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
 //             return Ok(web::Json(Response {
 //                 success: false,
 //                 message: "No secret has been set. Please set a secret first.".to_string(),
+//                 proof_verified: false,
+//                 on_chain_verified: false,
 //             }));
 //         }
 //         Some(secret) => {
@@ -172,11 +173,15 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
 //                         "Congratulations! Your guess of {} bugs is correct!",
 //                         user_guess
 //                     ),
+//                     proof_verified: true,
+//                     on_chain_verified: true,
 //                 }))
 //             } else {
 //                 Ok(web::Json(Response {
 //                     success: false,
 //                     message: format!("Proof verification failed: {}. Incorrect guess", user_guess),
+//                     proof_verified: false,
+//                     on_chain_verified: false,
 //                 }))
 //             }
 //         }
@@ -187,7 +192,7 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
 async fn generate_and_verify_local(
     user_guess: u32,
     secret: u32,
-) -> Result<(bool, ResponseData), actix_web::Error> {
+) -> Result<(bool, ResponseData, sp1_sdk::SP1ProofWithPublicValues), actix_web::Error> {
     utils::setup_logger();
 
     println!(
@@ -209,12 +214,12 @@ async fn generate_and_verify_local(
     let (pk, vk) = client.setup(&elf);
 
     println!("Generating proof...");
-    let mut proof = client.prove(&pk, stdin).run().unwrap();
+    let mut proof: sp1_sdk::SP1ProofWithPublicValues = client.prove(&pk, stdin).run().unwrap();
 
     let r = proof.public_values.read::<ResponseData>();
     println!("r: {:?}", r);
 
-    Ok((true, r))
+    Ok((true, r, proof))
 }
 
 // Local verification only
@@ -233,7 +238,7 @@ async fn verify_guess_local(
             on_chain_verified: false,
         })),
         Some(secret) => {
-            let (proof_success, r) = generate_and_verify_local(guess.guess, secret).await?;
+            let (proof_success, r, __) = generate_and_verify_local(guess.guess, secret).await?;
 
             Ok(web::Json(Response {
                 success: r.b,
@@ -269,7 +274,7 @@ async fn verify_guess_full(
             on_chain_verified: false,
         })),
         Some(secret) => {
-            let (proof_success, r) = generate_and_verify_local(guess.guess, secret).await?;
+            let (proof_success, r, proof) = generate_and_verify_local(guess.guess, secret).await?;
 
             // Only proceed with on-chain verification if the local proof is successful and correct
             if proof_success && r.b {
@@ -292,9 +297,10 @@ async fn verify_guess_full(
                 let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
                 let elf = fs::read(&elf_path)?;
 
+                let proof = bincode::serialize(&proof).expect("Failed to serialize proof");
                 let verification_data = VerificationData {
                     proving_system: ProvingSystemId::SP1,
-                    proof: bincode::serialize(&r).expect("Failed to serialize proof"),
+                    proof,
                     proof_generator_addr: wallet.address(),
                     vm_program_code: Some(elf.to_vec()),
                     verification_key: None,
@@ -302,7 +308,8 @@ async fn verify_guess_full(
                 };
 
                 let rpc_str: &str = &rpc_url;
-                let max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
+
+                let max_fee = estimate_fee(&rpc_str, PriceEstimate::Default)
                     .await
                     .expect("Failed to estimate fee");
 
@@ -310,6 +317,7 @@ async fn verify_guess_full(
                     .await
                     .expect("Failed to get nonce");
 
+                println!("Max fee: {}, Nonce: {}", max_fee, nonce);
                 let aligned_verification_data = submit_and_wait_verification(
                     BATCHER_URL,
                     &rpc_url,
@@ -358,6 +366,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             .route("/set-secret", web::post().to(set_secret))
+            // .route("/verify-guess", web::post().to(verify_guess))
             .route("/verify-guess/local", web::post().to(verify_guess_local))
             .route("/verify-guess/full", web::post().to(verify_guess_full))
     })

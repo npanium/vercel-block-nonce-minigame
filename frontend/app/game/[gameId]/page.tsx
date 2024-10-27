@@ -16,6 +16,7 @@ import {
   cleanupGameListeners,
   clickCell,
   endGame,
+  endGameWithFullVerification,
   getPlayerStats,
   initializeSocket,
   setupGameEndListener,
@@ -33,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useGameCreation } from "@/hooks/useGameCreation";
+import { SwishSpinner } from "@/components/SwishSpinner";
 
 export default function GamePage() {
   const { startNewGame, isLoading } = useGameCreation();
@@ -43,6 +45,13 @@ export default function GamePage() {
   const [resultBugs, setResultBugs] = useState(0);
   const [verificationInProg, setVerificationInProg] = useState(false);
   const [proofIsVerified, setProofIsVerified] = useState(false);
+  const [endType, setEndType] = useState("manual");
+  const [isFullVerifying, setIsFullVerifying] = useState(false);
+  const [fullVerificationResult, setFullVerificationResult] = useState<{
+    success?: boolean;
+    onChainVerified?: boolean;
+    contractTxHash?: string;
+  } | null>(null);
 
   const [isEnding, setIsEnding] = useState(false);
 
@@ -100,6 +109,7 @@ export default function GamePage() {
       console.log(`Found ${data.result.bugsFound} bugs`);
       console.log(`Data from FE: ${JSON.stringify(data)}`);
       setVerificationInProg(data.result.verificationInProgress);
+      setEndType(data.result.endType);
       setProofIsVerified(data.result.proofVerified);
       setResultBugs(data.result.bugsFound);
     });
@@ -135,8 +145,31 @@ export default function GamePage() {
     }
   };
 
+  const handleFullVerification = async () => {
+    if (!address || !gameId) return;
+
+    try {
+      setIsFullVerifying(true);
+      const result = await endGameWithFullVerification(gameId, address);
+      setFullVerificationResult(result);
+    } catch (error: any) {
+      console.error("Error in full verification:", error);
+      toast({
+        variant: "destructive",
+        title: "Full verification failed",
+        description: error?.response?.data?.error || "Please try again",
+      });
+    } finally {
+      setIsFullVerifying(false);
+    }
+  };
+
   if (!gameConfig) {
-    return <LoadingComponent />;
+    return (
+      <div className="h-[100vh] flex items-center">
+        <SwishSpinner />
+      </div>
+    );
   }
 
   if (initError) {
@@ -221,20 +254,59 @@ export default function GamePage() {
       )}
 
       <AlertDialog open={remainingTime.remainingTime === 0 || isEnding}>
-        <AlertDialogContent className="bg-[#161525] border-2 border-[#5b23d4]">
+        <AlertDialogContent className="bg-[#161525] border-2 border-[#5b23d4] w-1/3">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-bold mb-4">
-              Time's up!
+            <AlertDialogTitle className="text-2xl font-bold mb-4 flex justify-center">
+              {endType === "manual" ? "Level ended" : "Time's up!"}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-lg">
-              <span className="text-[#5cffb1]">
-                You got {resultBugs} {resultBugs <= 1 ? " bug" : " bugs"}
+
+            <AlertDialogDescription className="text-lg text-center">
+              <span className="text-[#5cffb1] my-2">
+                You got {resultBugs} {resultBugs === 1 ? " bug" : " bugs"}
               </span>
+
               <br />
+
               {verificationInProg ? (
-                <span>Verifying locally...</span>
+                <>
+                  <span>Verifying locally...</span>
+
+                  <SwishSpinner />
+                </>
               ) : proofIsVerified ? (
-                <span className="text-[#5cffb1]">You got all the bugs!</span>
+                <>
+                  <span className="text-[#5cffb1]">You got all the bugs!</span>
+                  {!isFullVerifying && !fullVerificationResult && (
+                    <div className="mt-4">
+                      <button
+                        onClick={handleFullVerification}
+                        className="bg-[#5b23d4] text-white px-4 py-2 rounded hover:bg-[#4a1cb0] transition-colors"
+                        disabled={isFullVerifying}
+                      >
+                        Verify On-Chain
+                      </button>
+                    </div>
+                  )}
+                  {isFullVerifying && (
+                    <>
+                      <div className="mt-2">Verifying on-chain...</div>
+                      <SwishSpinner />
+                    </>
+                  )}
+                  {fullVerificationResult && (
+                    <div className="mt-2">
+                      {fullVerificationResult.success ? (
+                        <span className="text-[#5cffb1]">
+                          Verified on-chain successfully!
+                        </span>
+                      ) : (
+                        <span className="text-[#ff006e]">
+                          On-chain verification failed
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <span className="text-[#ff006e]">
                   You didn't get all the bugs :(
@@ -246,7 +318,7 @@ export default function GamePage() {
             <AlertDialogAction
               className="bg-[#beb8db] text-[#5b23d4] hover:bg-transparent hover:border hover:border-[#5b23d4]"
               onClick={startNewGame}
-              disabled={verificationInProg}
+              disabled={verificationInProg || isFullVerifying}
             >
               {isLoading ? "Starting..." : "Next Block ›"}
             </AlertDialogAction>

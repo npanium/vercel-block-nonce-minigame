@@ -25,6 +25,7 @@ export interface PlayerStats {
 }
 
 export interface GameEndData {
+  success: boolean;
   gameId: string;
   status: string;
   result: {
@@ -35,5 +36,8 @@ export interface GameEndData {
     endType: "timeout" | "manual";
     proofVerified: boolean;
     verificationInProgress: boolean;
+    onChainVerified?: boolean;
+    contractTxHash?: string;
   };
+  error?: string;
 }
