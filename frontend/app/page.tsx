@@ -6,6 +6,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useToast } from "@/hooks/use-toast";
 import AnimatedBlockNonce from "../public/block-nonce_animated.svg";
 import { useGameCreation } from "@/hooks/useGameCreation";
+import InstructionsComponent from "@/components/InstructionsComponent";
 
 export default function Home() {
   const { startNewGame, isLoading } = useGameCreation();
@@ -32,9 +33,18 @@ export default function Home() {
         onClick={startNewGame}
         className="pulse-button"
         disabled={isLoading}
+        style={
+          isLoading
+            ? {
+                animation: "none",
+                background: "#6e6c77",
+              }
+            : {}
+        }
       >
         Start Game
       </button>
+      <InstructionsComponent />
     </main>
   );
 }

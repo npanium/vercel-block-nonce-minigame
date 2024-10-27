@@ -280,11 +280,14 @@ export default function GamePage() {
                     <div className="mt-4">
                       <button
                         onClick={handleFullVerification}
-                        className="bg-[#5b23d4] text-white px-4 py-2 rounded hover:bg-[#4a1cb0] transition-colors"
+                        className="bg-[#5b23d4] text-white inset-0 hover:bg-[#4a1cb0] transition-colors rounded-md text-sm font-medium h-10 px-4 py-2"
                         disabled={isFullVerifying}
                       >
-                        Verify On-Chain
+                        Verify On-Chain*
                       </button>
+                      <p className="text-xs py-2">
+                        *This could take over a few minutes
+                      </p>
                     </div>
                   )}
                   {isFullVerifying && (

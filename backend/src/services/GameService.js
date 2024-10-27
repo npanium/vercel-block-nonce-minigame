@@ -7,10 +7,10 @@ class GameService {
 
     // Game configuration constants
     this.GAME_CONFIG = {
-      MIN_BUGS: 1, //change back to 5
-      MAX_BUGS: 2, //change back to 10
+      MIN_BUGS: 5, //change back to 5
+      MAX_BUGS: 10, //change back to 10
       MIN_GRID_SIZE: 8,
-      MAX_GRID_SIZE: 9, //change back to 16
+      MAX_GRID_SIZE: 16, //change back to 16
       GAME_DURATION: 35000, // 35 seconds
     };
   }

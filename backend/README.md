@@ -1,71 +1,192 @@
-# Backend routes testing
+# Bug Hunt Game Backend
 
-Backend needs to be running in order to play the game.
-Run the following command to start.
+A Node.js backend service for the Bug Hunt game, handling game state management, proof verification integration, and real-time game updates using Socket.IO.
 
-```zsh
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [API Documentation](#api-documentation)
+- [Socket Events](#socket-events)
+- [Services](#services)
+
+## Prerequisites
+
+- Node.js (v14 or higher)
+- npm (Node Package Manager)
+- Access to a Rust verification server
+- Ethereum provider (for blockchain interactions)
+
+## Installation
+
+1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd <project-directory>/backend
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Create a `.env` file in the root directory with the following variables:
+
+```env
+PORT=3001
+RUST_SERVER_URL=http://127.0.0.1:8080
+NETWORK=holesky
+NODE_ENV=development
+```
+
+4. Start the server
+
+```bash
 npm start
 ```
 
-To test just the backend, try out the following routes in Postman or via curl requests in the terminal to [http://localhost:3001](http://localhost:3001).
+The server will start on `http://localhost:3001` by default.
 
-### Start game
+## Architecture
 
-```
-POST <localhost>/api/game/start-game
-Body: { address: "0x..." }
-```
+The backend is structured into several key components:
 
-### Handle click
+### Core Services
 
-```POST <localhost>/api/game/click
-Body: { gameId: "...", x: 0, y: 0, address: "0x..." }
-```
+- **GameService**: Manages game logic, state transitions, and proof verification
+- **GameStateManager**: Handles in-memory game state and player statistics
+- **ProofVerifier**: Interfaces with the Rust backend for ZK proof verification
 
-### End game
+### Key Features
 
-```
-POST <localhost>/api/game/end-game
-Body: { gameId: "...", signedTransaction: "...", address: "0x..." }
-```
+- Real-time game updates using Socket.IO
+- In-memory game state management
+- Integration with ZK proof verification system
+- Ethereum blockchain integration for on-chain verification
 
-### Get results
+## API Documentation
 
-```
-GET <localhost>/api/game/game-result/:gameId
-```
+### Game Management Endpoints
 
-### Check active game
+#### Create Game
 
 ```
-GET <localhost>/api/game/active-game/:address
+POST /api/game/create-game
+Body: { address: string }
+Response: { gameId: string }
 ```
 
-### Get game state
+#### Start Game
 
 ```
-GET <localhost>/api/game/game-state/:gameId?address=0x...
+POST /api/game/start-game/:gameId
+Body: { address: string }
+Response: { gameId, gridSize, bugs, numBugs, startTime, duration }
 ```
 
-### File functions
+#### Handle Cell Click
 
-#### GameService:
+```
+POST /api/game/click
+Body: { gameId: string, x: number, y: number, address: string }
+Response: { success: boolean }
+```
 
-- Handles game logic (creating games, processing moves, etc.)
-- Coordinates between components
-- Manages game rules and configuration
+#### End Game
 
-#### GameStateManager:
+```
+POST /api/game/end-game
+Body: { gameId: string, address: string }
+Response: { success: boolean, gameId: string, result: GameResult }
+```
 
-- Purely handles state management
-- Stores and retrieves game states
-- Manages player-game associations
+#### Full Verification
 
-#### config.js:
+```
+POST /api/game/end-game/full
+Body: { gameId: string, address: string }
+Response: { success: boolean, gameId: string, result: GameResult }
+```
 
-- Environment variables
-- Network configuration
-- Other app-wide settings
+### Query Endpoints
+
+#### Get Game State
+
+```
+GET /api/game/game-state/:gameId?address=<player-address>
+Response: GameState
+```
+
+#### Get Active Game
+
+```
+GET /api/game/active-game/:address
+Response: { hasActiveGame: boolean, gameId?: string, remainingTime?: number }
+```
+
+#### Get Player Stats
+
+```
+GET /api/game/stats/:address
+Response: { gamesPlayed: number }
+```
+
+## Socket Events
+
+### Server -> Client Events
+
+- `gameEnded`: Emitted when a game ends with local verification
+- `gameEndedFull`: Emitted when a game ends with full on-chain verification
+
+### Client -> Server Events
+
+- `joinGame`: Client joins a specific game room
+- `disconnect`: Client disconnection handling
+
+## Services
+
+### GameService
+
+Handles core game logic including:
+
+- Game creation and initialization
+- Game state management
+- Move validation
+- Proof verification coordination
+- Game termination and result calculation
+
+### GameStateManager
+
+Manages:
+
+- Active games tracking
+- Player statistics
+- Game state persistence
+- Game cleanup
+
+### ProofVerifier
+
+Handles:
+
+- Local proof verification
+- Full on-chain proof verification
+- Communication with Rust verification server
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details
 
 ## To-dos
 
