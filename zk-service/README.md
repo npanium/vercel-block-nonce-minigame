@@ -7,6 +7,7 @@ A Rust-based backend service handling zero-knowledge proof generation and verifi
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Setup](#setup)
+- [Verification Costs](#verification-costs)
 - [Architecture](#architecture)
 - [API Documentation](#api-documentation)
 - [Development](#development)
@@ -66,6 +67,47 @@ cargo run -r --bin server
 ```
 
 The server will start on `http://127.0.0.1:8080`.
+
+## Verification Costs
+
+### Current Setup
+
+⚠️ **Important**: Currently, the game creator (server operator) pays for all proof verification costs on Aligned Layer.
+
+To handle verification costs:
+
+1. Ensure your wallet has sufficient Holesky ETH
+2. Fund the Batcher by either:
+   - Uncommenting lines 171-177 in `script/src/bin/server.rs` during first run to deposit funds
+   - Using Aligned CLI directly to deposit funds:
+     ```bash
+     aligned deposit-to-batcher \
+       --rpc_url https://ethereum-holesky-rpc.publicnode.com \
+       --network holesky \
+       --keystore_path <keystore_path> \
+       --amount 0.1ether
+     ```
+
+You can check your Batcher balance using:
+
+```bash
+aligned get-user-balance \
+  --rpc_url https://ethereum-holesky-rpc.publicnode.com \
+  --network holesky \
+  --user_addr <your_address>
+```
+
+### Future Payment Models
+
+In future iterations, several payment models could be implemented:
+
+- Smart contract-based user payment system
+- Token-gated verification system
+- Batch verification cost sharing
+- Pay-per-session model
+- Subscription-based model for game operators
+
+These improvements would make the system more sustainable and allow for different business models while maintaining the security benefits of ZK proof verification.
 
 ## Architecture
 

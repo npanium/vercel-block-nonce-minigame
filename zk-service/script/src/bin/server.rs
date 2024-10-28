@@ -1,8 +1,10 @@
 use actix_web::{web, App, HttpServer, Responder};
 use aligned_sdk::core::types::{Network, PriceEstimate, ProvingSystemId, VerificationData};
-use aligned_sdk::sdk::{estimate_fee, get_payment_service_address};
+use aligned_sdk::sdk::{deposit_to_aligned, estimate_fee, get_payment_service_address};
 use aligned_sdk::sdk::{get_next_nonce, submit_and_wait_verification};
 use dotenv::dotenv;
+use ethers::middleware::SignerMiddleware;
+use ethers::types::U256;
 use ethers::utils::hex;
 use ethers::{
     providers::{Http, Middleware, Provider},
@@ -17,7 +19,6 @@ use std::sync::Mutex;
 
 const BATCHER_URL: &str = "wss://batcher.alignedlayer.com";
 const NETWORK: Network = Network::Holesky;
-
 // Struct to hold the game state
 struct AppState {
     secret: Mutex<Option<u32>>,
@@ -57,136 +58,6 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
         on_chain_verified: false,
     })
 }
-
-// async fn verify_guess(
-//     guess: web::Json<UserGuess>,
-//     state: web::Data<AppState>,
-// ) -> Result<impl Responder, actix_web::Error> {
-//     dotenv().ok();
-
-//     let secret = state.secret.lock().unwrap().clone();
-
-//     match secret {
-//         None => {
-//             return Ok(web::Json(Response {
-//                 success: false,
-//                 message: "No secret has been set. Please set a secret first.".to_string(),
-//                 proof_verified: false,
-//                 on_chain_verified: false,
-//             }));
-//         }
-//         Some(secret) => {
-//             // Setup a tracer for logging.
-//             utils::setup_logger();
-
-//             let user_guess = guess.guess;
-//             println!(
-//                 "Number of bugs guessed: {:?}, Secret: {}",
-//                 user_guess, secret
-//             );
-
-//             let mut stdin = SP1Stdin::new();
-//             stdin.write(&user_guess);
-//             stdin.write(&secret);
-
-//             let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
-//             let elf = fs::read(&elf_path).map_err(|e| {
-//                 actix_web::error::ErrorInternalServerError(format!(
-//                     "Failed to read ELF file: {}",
-//                     e
-//                 ))
-//             })?;
-
-//             println!("Setting up Prover Client with elf path-{}", elf_path);
-//             let client = ProverClient::new();
-//             let (pk, vk) = client.setup(&elf);
-
-//             println!("Generating proof...");
-//             let mut proof = client.prove(&pk, stdin).run().unwrap();
-
-//             let r = proof.public_values.read::<ResponseData>();
-//             println!("r: {:?}", r);
-//             println!("Local proof verification successful.");
-
-//             // On-chain verification
-//             let rpc_url: String = env::var("RPC_URL").expect("RPC_URL not set");
-//             println!("RPC URL: {}", rpc_url);
-
-//             let provider =
-//                 Provider::<Http>::try_from(rpc_url.clone()).expect("Failed to create provider");
-//             let chain_id = provider
-//                 .get_chainid()
-//                 .await
-//                 .expect("Failed to get chain_id");
-//             let wallet: LocalWallet = env::var("PRIVATE_KEY")
-//                 .expect("PRIVATE_KEY not set")
-//                 .parse::<LocalWallet>()
-//                 .expect("Failed to parse the wallet")
-//                 .with_chain_id(chain_id.as_u64());
-
-//             let verification_data = VerificationData {
-//                 proving_system: ProvingSystemId::SP1,
-//                 proof: bincode::serialize(&proof).expect("Failed to serialize proof"),
-//                 proof_generator_addr: wallet.address(),
-//                 vm_program_code: Some(elf.to_vec()),
-//                 verification_key: None,
-//                 pub_input: None,
-//             };
-
-//             println!("Wallet: {:?}", wallet.address());
-//             let rpc_str: &str = &rpc_url;
-//             let max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
-//                 .await
-//                 .expect("Failed to estimate fee");
-
-//             println!("Max Fee: {}", max_fee);
-
-//             let nonce = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
-//                 .await
-//                 .expect("Failed to get nonce");
-
-//             println!("Nonce: {}", nonce);
-
-//             let aligned_verification_data = submit_and_wait_verification(
-//                 BATCHER_URL,
-//                 &rpc_url,
-//                 NETWORK,
-//                 &verification_data,
-//                 max_fee,
-//                 wallet.clone(),
-//                 nonce,
-//             )
-//             .await
-//             .unwrap();
-
-//             println!(
-//                 "Proof submitted and verified successfully on batch {}",
-//                 hex::encode(aligned_verification_data.batch_merkle_root)
-//             );
-
-//             let guess_is_correct = r.b;
-
-//             if guess_is_correct {
-//                 Ok(web::Json(Response {
-//                     success: true,
-//                     message: format!(
-//                         "Congratulations! Your guess of {} bugs is correct!",
-//                         user_guess
-//                     ),
-//                     proof_verified: true,
-//                     on_chain_verified: true,
-//                 }))
-//             } else {
-//                 Ok(web::Json(Response {
-//                     success: false,
-//                     message: format!("Proof verification failed: {}. Incorrect guess", user_guess),
-//                     proof_verified: false,
-//                     on_chain_verified: false,
-//                 }))
-//             }
-//         }
-//     }
-// }
 
 // Helper function for local proof generation and verification
 async fn generate_and_verify_local(
@@ -263,7 +134,6 @@ async fn verify_guess_full(
     state: web::Data<AppState>,
 ) -> Result<impl Responder, actix_web::Error> {
     dotenv().ok();
-
     let secret = state.secret.lock().unwrap().clone();
 
     match secret {
@@ -288,12 +158,25 @@ async fn verify_guess_full(
                     .get_chainid()
                     .await
                     .expect("Failed to get chain_id");
+
                 let wallet: LocalWallet = env::var("PRIVATE_KEY")
                     .expect("PRIVATE_KEY not set")
                     .parse::<LocalWallet>()
                     .expect("Failed to parse the wallet")
                     .with_chain_id(chain_id.as_u64());
 
+                let signer = SignerMiddleware::new(provider.clone(), wallet.clone());
+
+                // Just call once to have sufficient balance
+                // deposit_to_aligned(
+                //     U256::from(4000000000000000u128), // 0.004 ETH in wei
+                //     signer.clone(),
+                //     NETWORK,
+                // )
+                // .await
+                // .expect("Failed to pay for proof submission");
+
+                println!("Wallet: {:?}", wallet);
                 let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
                 let elf = fs::read(&elf_path)?;
 
@@ -309,15 +192,16 @@ async fn verify_guess_full(
 
                 let rpc_str: &str = &rpc_url;
 
-                let max_fee = estimate_fee(&rpc_str, PriceEstimate::Default)
+                let mut max_fee = estimate_fee(&rpc_str, PriceEstimate::Instant)
                     .await
                     .expect("Failed to estimate fee");
-
-                let nonce = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
+                max_fee *= 2;
+                let nonce: U256 = get_next_nonce(&rpc_url, wallet.address(), NETWORK)
                     .await
                     .expect("Failed to get nonce");
 
                 println!("Max fee: {}, Nonce: {}", max_fee, nonce);
+
                 let aligned_verification_data = submit_and_wait_verification(
                     BATCHER_URL,
                     &rpc_url,
@@ -334,7 +218,6 @@ async fn verify_guess_full(
                     "Proof submitted and verified successfully on batch {}",
                     hex::encode(aligned_verification_data.batch_merkle_root)
                 );
-
                 Ok(web::Json(Response {
                     success: true,
                     message: format!(
