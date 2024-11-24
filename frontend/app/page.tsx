@@ -9,7 +9,7 @@ import { useGameCreation } from "@/hooks/useGameCreation";
 import InstructionsComponent from "@/components/InstructionsComponent";
 
 export default function Home() {
-  const { startNewGame, isLoading } = useGameCreation();
+  const { startGuestGame, startWeb3Game, isLoading } = useGameCreation();
 
   return (
     <main className="flex flex-col items-center justify-center">
@@ -30,13 +30,12 @@ export default function Home() {
       </div>
       {/* <h1 className="text-4xl font-bold mb-8">Block-Nonce Game</h1> */}
       <button
-        onClick={startNewGame}
-        className="pulse-button"
+        onClick={startWeb3Game}
+        className="bg-[#5c39ff] border border-transparent text-[#dfd8ff] px-5 py-2 rounded-lg hover:bg-[#5c39ff]/10 hover:border hover:border-[#5c39ff]"
         disabled={isLoading}
         style={
           isLoading
             ? {
-                animation: "none",
                 background: "#6e6c77",
               }
             : {}
@@ -44,6 +43,24 @@ export default function Home() {
       >
         Start Game
       </button>
+      <p className="my-5">Or</p>
+      <button
+        onClick={startGuestGame}
+        className="bg-[#dfd8ff] border border-transparent text-[#5c39ff] px-5 py-2 rounded-lg hover:bg-[#dfd8ff]/10 hover:border hover:border-[#5c39ff]"
+        disabled={isLoading}
+        style={
+          isLoading
+            ? {
+                background: "#6e6c77",
+              }
+            : {}
+        }
+      >
+        Play without connecting wallet
+      </button>
+      <p className="text-xs mt-4">
+        Use this option if you don&apos;t know what a <i>wallet</i> is
+      </p>
       <InstructionsComponent />
     </main>
   );

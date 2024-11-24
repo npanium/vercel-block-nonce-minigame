@@ -12,7 +12,7 @@ interface UseGameInitializationReturn {
 }
 
 export const useGameInitialization = (
-  address: string,
+  playerIdentifier: string,
   gameId: string
 ): UseGameInitializationReturn => {
   const { toast } = useToast();
@@ -23,9 +23,9 @@ export const useGameInitialization = (
   const initializeGame = async () => {
     setIsLoading(true);
     setError(null);
-
+    console.log("Trying to get existing game");
     try {
-      const existingGame = await getGameState(address, gameId);
+      const existingGame = await getGameState(playerIdentifier, gameId);
       console.log(`Existing Game info: ${JSON.stringify(existingGame)}`);
       if (existingGame) {
         if (
@@ -45,7 +45,8 @@ export const useGameInitialization = (
         }
       }
 
-      const generatedData = await startGame(address, gameId);
+      const generatedData = await startGame(playerIdentifier, gameId);
+
       const config: GameConfig = {
         startTime: generatedData.startTime,
         duration: generatedData.duration,

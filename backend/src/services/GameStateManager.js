@@ -15,7 +15,6 @@ class GameStateManager {
     });
 
     if (gameState.address) {
-      console.log("Creating a new game...");
       this.activePlayerGames.set(gameState.address, gameId);
       const currentStats = this.playerStats.get(gameState.address) || {
         gamesPlayed: 0,

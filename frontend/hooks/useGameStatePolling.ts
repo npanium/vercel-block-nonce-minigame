@@ -10,7 +10,7 @@ interface UseGameStatePollingReturn {
 }
 
 export const useGameStatePolling = (
-  address: string,
+  playerIdentifier: string,
   gameId: string,
   pollInterval = 1000
 ): UseGameStatePollingReturn => {
@@ -21,7 +21,7 @@ export const useGameStatePolling = (
 
   const fetchGameState = useCallback(async () => {
     try {
-      const state = await getGameState(address, gameId);
+      const state = await getGameState(playerIdentifier, gameId);
       setGameState(state);
       setIsRunning(!state.isEnded);
       setError(null);
@@ -38,7 +38,7 @@ export const useGameStatePolling = (
         clearInterval(intervalRef.current);
       }
     }
-  }, [address, gameId]);
+  }, [playerIdentifier, gameId]);
 
   useEffect(() => {
     fetchGameState();

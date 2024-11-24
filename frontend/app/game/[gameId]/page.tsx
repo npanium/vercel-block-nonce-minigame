@@ -35,9 +35,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGameCreation } from "@/hooks/useGameCreation";
 import { SwishSpinner } from "@/components/SwishSpinner";
+import Cookies from "js-cookie";
 
 export default function GamePage() {
-  const { startNewGame, isLoading } = useGameCreation();
+  const { startGuestGame, startWeb3Game, isLoading } = useGameCreation();
   const { gameId } = useParams() as { gameId: string };
   const { address } = useAccount();
   const { toast } = useToast();
@@ -52,18 +53,31 @@ export default function GamePage() {
     onChainVerified?: boolean;
     contractTxHash?: string;
   } | null>(null);
-
+  const [playerIdentifier, setPlayerIdentifier] = useState<string>("");
   const [isEnding, setIsEnding] = useState(false);
+
+  // Initialize playerIdentifier on mount
+  useEffect(() => {
+    const guestId = Cookies.get("guestId");
+    if (address) {
+      setPlayerIdentifier(address);
+    } else if (guestId) {
+      setPlayerIdentifier(guestId);
+    }
+  }, [address]);
 
   // Initialize game and get configuration
   const {
     gameConfig,
     error: initError,
     initializeGame,
-  } = useGameInitialization(address!, gameId);
+  } = useGameInitialization(playerIdentifier, gameId);
 
   // Poll game state
-  const { gameState, isRunning } = useGameStatePolling(address!, gameId);
+  const { gameState, isRunning } = useGameStatePolling(
+    playerIdentifier!,
+    gameId
+  );
 
   // Calculate remaining time
   const remainingTime = useRemainingTime(
@@ -73,15 +87,18 @@ export default function GamePage() {
 
   // Initialize game on mount
   useEffect(() => {
-    if (address) {
+    console.log(`Player identifier:: ${playerIdentifier}`);
+    if (playerIdentifier) {
       initializeGame();
+    } else {
+      console.log("Could not initialize game");
     }
-  }, [address]);
+  }, [playerIdentifier]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const stats = await getPlayerStats(address!.toString());
+        const stats = await getPlayerStats(playerIdentifier);
         console.log(`Stats: ${JSON.stringify(stats)}`);
         setGamesPlayed(stats.gamesPlayed);
       } catch (err) {
@@ -89,10 +106,10 @@ export default function GamePage() {
       }
     };
 
-    if (address) {
+    if (playerIdentifier) {
       fetchStats();
     }
-  }, [address, gameId]);
+  }, [playerIdentifier, gameId]);
 
   useEffect(() => {
     // Initialize socket connection
@@ -121,11 +138,11 @@ export default function GamePage() {
   }, [gameId]);
 
   const handleEndGame = async () => {
-    if (!address || !gameId) return;
+    if (!playerIdentifier || !gameId) return;
 
     try {
       setIsEnding(true);
-      const result = await endGame(gameId, address);
+      const result = await endGame(gameId, playerIdentifier);
 
       if (result.success) {
         console.log("Successfully ended the game");
@@ -146,7 +163,14 @@ export default function GamePage() {
   };
 
   const handleFullVerification = async () => {
-    if (!address || !gameId) return;
+    if (!address || !gameId) {
+      toast({
+        variant: "destructive",
+        title: "Wallet Required",
+        description: "On-chain verification requires a connected wallet",
+      });
+      return;
+    }
 
     try {
       setIsFullVerifying(true);
@@ -189,7 +213,7 @@ export default function GamePage() {
   const handleCellReveal = async (position: Position) => {
     if (!address || !gameId) return;
     try {
-      await clickCell(gameId, position, address);
+      await clickCell(gameId, position, playerIdentifier);
     } catch (error: any) {
       console.error("Error revealing cell:", error);
       toast({
@@ -320,7 +344,7 @@ export default function GamePage() {
           <AlertDialogFooter className="m-auto">
             <AlertDialogAction
               className="bg-[#beb8db] text-[#5b23d4] hover:bg-transparent hover:border hover:border-[#5b23d4]"
-              onClick={startNewGame}
+              onClick={address ? startWeb3Game : startGuestGame}
               disabled={verificationInProg || isFullVerifying}
             >
               {isLoading ? "Starting..." : "Next Block ›"}

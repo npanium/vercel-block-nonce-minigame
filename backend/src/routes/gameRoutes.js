@@ -22,6 +22,7 @@ function setupGameRoutes(gameService, io) {
 
     try {
       const gameId = await gameService.createGame(address);
+      console.log(`GameId: ${gameId}`);
       res.json({ gameId });
     } catch (error) {
       if (error.message.includes("already has active game")) {
@@ -37,7 +38,7 @@ function setupGameRoutes(gameService, io) {
   router.post("/start-game/:gameId", async (req, res) => {
     const { gameId } = req.params;
     const { address } = req.body;
-
+    console.log("Router trying to start the game");
     try {
       const gameData = await gameService.startGame(gameId, address);
       res.json(gameData);

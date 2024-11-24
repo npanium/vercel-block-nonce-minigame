@@ -9,20 +9,37 @@ const setupGameRoutes = require("./routes/gameRoutes");
 const { validateAddress } = require("./middlewares/auth");
 const http = require("http");
 const { Server } = require("socket.io");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 const server = http.createServer(app);
+
+const CORS_ORIGIN =
+  process.env.NODE_ENV === "production"
+    ? "your-production-url.com"
+    : "http://localhost:3000";
+
+app.use(
+  cors({
+    origin: CORS_ORIGIN,
+    credentials: true,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["set-cookie"],
+  })
+);
+
+// Middleware
+app.use(express.json());
+app.use(cookieParser());
+
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000", // frontend URL
+    origin: CORS_ORIGIN, // frontend URL
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
-
-// Middleware
-app.use(cors());
-app.use(express.json());
 
 // Setup services
 const provider = ethers.getDefaultProvider(config.network);

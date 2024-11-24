@@ -18,6 +18,7 @@ class GameService {
   // Helper method to validate game access
   validateGameAccess(gameId, address) {
     const game = this.gameStateManager.getGame(gameId);
+
     if (!game) {
       throw new Error("Game not found");
     }
@@ -78,25 +79,31 @@ class GameService {
   }
 
   async startGame(gameId, address) {
+    console.log("GS startGame validating addr");
     const game = this.validateGameAccess(gameId, address);
 
     if (game.config) {
       throw new Error("Game already started");
     }
-
+    console.log("GS startGame initializing game config ");
     // Initialize game configuration
     const gameConfig = this.generateGameConfig();
 
+    console.log(JSON.stringify(gameConfig));
     // Set the secret (number of bugs) in the proof verifier
-    try {
-      const secretSetRes = await this.proofVerifier.setSecret(
-        gameConfig.bugs.length
-      );
-      console.log(`Secret set. ${JSON.stringify(secretSetRes)}`);
-    } catch (error) {
-      throw new Error(
-        `Failed to initialize game verification: ${error.message}`
-      );
+    if (address?.startsWith("guest_")) {
+      console.log("Skipping set secret");
+    } else {
+      try {
+        const secretSetRes = await this.proofVerifier.setSecret(
+          gameConfig.bugs.length
+        );
+        console.log(`Secret set. ${JSON.stringify(secretSetRes)}`);
+      } catch (error) {
+        throw new Error(
+          `Failed to initialize game verification: ${error.message}`
+        );
+      }
     }
 
     const updates = {

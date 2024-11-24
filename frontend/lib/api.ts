@@ -7,6 +7,7 @@ import {
 } from "@/types/game";
 import axios, { AxiosError } from "axios";
 import { io, Socket } from "socket.io-client";
+import Cookies from "js-cookie";
 
 // API Types
 interface GameResponse {
@@ -22,6 +23,11 @@ interface GameResponse {
 
 interface ClickResponse {
   success: boolean;
+}
+
+interface PlayerIdentifier {
+  address: string;
+  isGuest: boolean;
 }
 
 // API Error
@@ -57,6 +63,28 @@ export const initializeSocket = () => {
   return socket;
 };
 
+const getPlayerIdentifier = (address?: string): PlayerIdentifier => {
+  if (address && !address.startsWith("guest_")) {
+    return { address, isGuest: false };
+  }
+
+  // Check for existing guest ID in cookies
+  let guestId = Cookies.get("guestId");
+
+  // If no guest ID exists or a new guest session is requested, create one
+  if (!guestId) {
+    guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    Cookies.set("guestId", guestId, {
+      expires: 1, // 1 day
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+
+  return { address: guestId, isGuest: true };
+};
+
 // Axios instance with default config
 const apiClient = axios.create({
   baseURL: ROUTE_URL,
@@ -64,6 +92,7 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Important for cookie handling
 });
 
 // Error handler
@@ -115,9 +144,12 @@ export const cleanupGameListeners = (gameId: string) => {
   }
 };
 
-export const createGame = async (address: string): Promise<GameResponse> => {
+export const createGame = async (
+  playerAddress?: string
+): Promise<GameResponse> => {
   try {
-    console.log("Creating a game FE");
+    const { address } = getPlayerIdentifier(playerAddress);
+    console.log(`Creating a game FE with address: ${address}`);
     const response = await apiClient.post<GameResponse>("/create-game", {
       address,
     });
@@ -132,8 +164,9 @@ export const startGame = async (
   gameId: string
 ): Promise<GameConfig> => {
   try {
+    const { address: playerAddress } = getPlayerIdentifier(address);
     const response = await apiClient.post<GameConfig>(`/start-game/${gameId}`, {
-      address,
+      address: playerAddress,
     });
     joinGameRoom(gameId);
     return response.data;
@@ -147,8 +180,9 @@ export const getGameState = async (
   gameId: string
 ): Promise<GameState> => {
   try {
+    const { address: playerAddress } = getPlayerIdentifier(address);
     const response = await apiClient.get<GameState>(`/game-state/${gameId}`, {
-      params: { address },
+      params: { address: playerAddress },
     });
     return response.data;
   } catch (error) {
@@ -173,13 +207,15 @@ export const endGame = async (
   address: string
 ): Promise<GameEndData> => {
   try {
+    const { address: playerAddress, isGuest } = getPlayerIdentifier(address);
     const response = await apiClient.post<GameEndData>(
       `/end-game`,
       {
         gameId,
-        address,
+        address: playerAddress,
+        isGuest, // To let backend know if it's a guest
       },
-      { timeout: 120000 } // 120 seconds timeout
+      { timeout: 120000 }
     );
     console.log(`End game response data: ${JSON.stringify(response.data)}`);
     return response.data;
@@ -194,15 +230,26 @@ export const endGameWithFullVerification = async (
   contractAddress?: string
 ): Promise<GameEndData> => {
   try {
+    const { address: playerAddress, isGuest } = getPlayerIdentifier(address);
+    // Don't allow guests to do full verification
+    if (isGuest) {
+      throw new ApiError(
+        "Full verification requires a connected wallet",
+        400,
+        "WALLET_REQUIRED"
+      );
+    }
+
     console.log("FE- full verification trying");
     const response = await apiClient.post<GameEndData>(
       `/end-game/full`,
       {
         gameId,
-        address,
+        address: playerAddress,
+        contractAddress,
       },
       {
-        timeout: 300000, // 5 minutes timeout for full verification
+        timeout: 300000,
       }
     );
     console.log(
@@ -218,9 +265,10 @@ export const endGameWithFullVerification = async (
 
 export const getPlayerStats = async (address: string): Promise<PlayerStats> => {
   try {
-    const response = await apiClient.get<PlayerStats>(`/stats/${address}`, {
-      params: { address },
-    });
+    const { address: playerAddress } = getPlayerIdentifier(address);
+    const response = await apiClient.get<PlayerStats>(
+      `/stats/${playerAddress}`
+    );
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -233,11 +281,12 @@ export const clickCell = async (
   address: string
 ): Promise<ClickResponse> => {
   try {
+    const { address: playerAddress } = getPlayerIdentifier(address);
     const response = await apiClient.post<ClickResponse>("/click", {
       gameId,
       x: position.x,
       y: position.y,
-      address,
+      address: playerAddress,
     });
     return response.data;
   } catch (error) {

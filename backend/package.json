@@ -13,11 +13,13 @@
   "license": "ISC",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/js-cookie": "^3.0.6",
     "hardhat": "^2.22.12"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
     "axios": "^1.7.7",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.3",
