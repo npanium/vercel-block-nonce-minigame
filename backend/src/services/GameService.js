@@ -177,26 +177,45 @@ class GameService {
       game.config.bugs.some((bug) => bug.x === cell.x && bug.y === cell.y)
     ).length;
 
+    // Check if this is a guest user
+    const isGuest = game.address.startsWith("guest_");
+
     const initialResult = {
       bugsFound,
       totalBugs: game.config.bugs.length,
       clickedCells: game.clickedCells.length,
       duration: Date.now() - game.startTime,
       endType,
-      proofVerified: false,
-      verificationInProgress: true,
+      proofVerified: isGuest ? true : false, // Always true for guests
+      verificationInProgress: isGuest ? false : true, // Never "in progress" for guests
     };
 
-    // Emit initial result immediately
+    // Emit initial result
     this.io.to(gameId).emit("gameEnded", {
       gameId,
       result: initialResult,
       endType,
-      status: "verifying",
+      status: isGuest ? "complete" : "verifying",
     });
 
+    // For guest users, skip verification and return immediately
+    if (isGuest) {
+      const finalResult = {
+        ...initialResult,
+        proofVerified: true,
+        verificationInProgress: false,
+      };
+
+      this.gameStateManager.updateGame(gameId, {
+        ...updates,
+        result: finalResult,
+      });
+
+      return finalResult;
+    }
+
+    // Continue with normal verification for web3 users
     try {
-      // Verify the bugs found with the proof verifier Locally
       const verificationResult = await this.proofVerifier.verifyGuessLocal(
         bugsFound
       );
@@ -207,15 +226,10 @@ class GameService {
         verificationInProgress: false,
       };
 
-      const updates = {
-        isEnded: true,
-        endType,
-        endTime: Date.now(),
-        timeoutId: null,
+      this.gameStateManager.updateGame(gameId, {
+        ...updates,
         result: finalResult,
-      };
-
-      this.gameStateManager.updateGame(gameId, updates);
+      });
 
       console.log(
         `Emitting final gameEnded event with verification for game ${gameId}`
@@ -227,7 +241,6 @@ class GameService {
         status: "complete",
       });
 
-      // console.log(`Proof verified with result ${JSON.stringify(finalResult)}`);
       return finalResult;
     } catch (error) {
       console.error(`Error verifying proof for game ${gameId}:`, error);
@@ -242,6 +255,11 @@ class GameService {
   ) {
     const game = this.gameStateManager.getGame(gameId);
     if (!game) return null;
+
+    // Prevent guest users from using full verification
+    if (game.address.startsWith("guest_")) {
+      throw new Error("Full verification is not available for guest users");
+    }
 
     if (game.timeoutId) {
       clearTimeout(game.timeoutId);
