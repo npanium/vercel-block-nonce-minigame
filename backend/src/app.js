@@ -16,7 +16,7 @@ const server = http.createServer(app);
 
 const CORS_ORIGIN =
   process.env.NODE_ENV === "production"
-    ? "your-production-url.com"
+    ? "vercel-block-nonce-minigame.vercel.app"
     : "http://localhost:3000";
 
 app.use(
