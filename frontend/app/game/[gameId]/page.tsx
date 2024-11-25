@@ -36,6 +36,7 @@ import {
 import { useGameCreation } from "@/hooks/useGameCreation";
 import { SwishSpinner } from "@/components/SwishSpinner";
 import Cookies from "js-cookie";
+import { json } from "stream/consumers";
 
 export default function GamePage() {
   const { startGuestGame, startWeb3Game, isLoading } = useGameCreation();
@@ -55,6 +56,7 @@ export default function GamePage() {
   } | null>(null);
   const [playerIdentifier, setPlayerIdentifier] = useState<string>("");
   const [isEnding, setIsEnding] = useState(false);
+  const [playerIsGuest, setPlayerIsGuest] = useState(false);
 
   // Initialize playerIdentifier on mount
   useEffect(() => {
@@ -63,6 +65,7 @@ export default function GamePage() {
       setPlayerIdentifier(address);
     } else if (guestId) {
       setPlayerIdentifier(guestId);
+      setPlayerIsGuest(true);
     }
   }, [address]);
 
@@ -211,7 +214,7 @@ export default function GamePage() {
   }
 
   const handleCellReveal = async (position: Position) => {
-    if (!address || !gameId) return;
+    if (!playerIdentifier || !gameId) return;
     try {
       await clickCell(gameId, position, playerIdentifier);
     } catch (error: any) {
@@ -299,13 +302,23 @@ export default function GamePage() {
                 </>
               ) : proofIsVerified ? (
                 <>
-                  <span className="text-[#5cffb1]">You got all the bugs!</span>
+                  {playerIsGuest && resultBugs === gameConfig.bugs.length ? (
+                    <span className="text-[#5cffb1]">
+                      You got all the bugs!
+                    </span>
+                  ) : (
+                    <span className="text-[#ff006e]">
+                      You didn't get all the bugs :(
+                    </span>
+                  )}
+                  {/* <span className="text-[#5cffb1]">You got all the bugs!</span> */}
                   {!isFullVerifying && !fullVerificationResult && (
                     <div className="mt-4">
                       <button
                         onClick={handleFullVerification}
-                        className="bg-[#5b23d4] text-white inset-0 hover:bg-[#4a1cb0] transition-colors rounded-md text-sm font-medium h-10 px-4 py-2"
-                        disabled={isFullVerifying}
+                        className="bg-[#5b23d4]/50 text-white/50 inset-0  transition-colors rounded-md text-sm font-medium h-10 px-4 py-2"
+                        // disabled={isFullVerifying}
+                        disabled
                       >
                         Verify On-Chain*
                       </button>
