@@ -79,13 +79,11 @@ class GameService {
   }
 
   async startGame(gameId, address) {
-    console.log("GS startGame validating addr");
     const game = this.validateGameAccess(gameId, address);
 
     if (game.config) {
       throw new Error("Game already started");
     }
-    console.log("GS startGame initializing game config ");
     // Initialize game configuration
     const gameConfig = this.generateGameConfig();
 

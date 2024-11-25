@@ -76,8 +76,11 @@ export default function Home() {
       >
         Play without connecting wallet
       </button>
-      <p className="text-xs mt-4">
+      {/* <p className="text-xs mt-4">
         Use this option if you don&apos;t know what a <i>wallet</i> is
+      </p> */}
+      <p className="text-xs mt-4">
+        The game is best experienced on a <i>desktop</i> browser
       </p>
       <InstructionsComponent />
     </main>

@@ -173,11 +173,28 @@ function setupGameRoutes(gameService, io) {
   });
 
   // Get player stats
-  router.get("/stats/:address", (req, res) => {
-    const stats = gameService.gameStateManager.getPlayerStats(
-      req.params.address
-    );
-    res.json(stats);
+  router.get("/stats", (req, res) => {
+    try {
+      const { address } = req.query;
+
+      if (!address) {
+        return res.status(400).json({ error: "Address is required" });
+      }
+
+      console.log(`Getting stats for address: ${address}`);
+
+      const stats = gameService.gameStateManager.getPlayerStats(address);
+      console.log(`Retrieved stats:`, stats);
+
+      if (!stats) {
+        return res.status(404).json({ error: "Stats not found for address" });
+      }
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting player stats:", error);
+      res.status(500).json({ error: "Failed to retrieve player stats" });
+    }
   });
 
   return router;

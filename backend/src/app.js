@@ -46,10 +46,6 @@ app.use(
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
-  next();
-});
 
 const io = new Server(server, {
   cors: {
@@ -60,6 +56,10 @@ const io = new Server(server, {
   },
 });
 
+// app.use((req, res, next) => {
+//   console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+//   next();
+// });
 // Setup services
 const provider = ethers.getDefaultProvider(config.network);
 const gameStateManager = new GameStateManager();
