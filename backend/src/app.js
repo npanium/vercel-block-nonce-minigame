@@ -16,12 +16,22 @@ const server = http.createServer(app);
 
 const CORS_ORIGIN =
   process.env.NODE_ENV === "production"
-    ? "vercel-block-nonce-minigame.vercel.app"
-    : "http://localhost:3000";
+    ? ["https://vercel-block-nonce-minigame.vercel.app"]
+    : ["http://localhost:3000"];
 
 app.use(
   cors({
-    origin: CORS_ORIGIN,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl requests)
+      if (!origin) return callback(null, true);
+
+      if (CORS_ORIGIN.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log("Blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -35,9 +45,10 @@ app.use(cookieParser());
 
 const io = new Server(server, {
   cors: {
-    origin: CORS_ORIGIN, // frontend URL
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   },
 });
 
