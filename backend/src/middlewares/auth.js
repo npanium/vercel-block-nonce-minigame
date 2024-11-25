@@ -24,8 +24,6 @@ function validateAddress(req, res, next) {
     }
   }
 
-  console.log(`Auth- Address from fn vA: ${address}`);
-
   if (!address) {
     return res.status(400).json({ error: "Something went wrong..." });
   }

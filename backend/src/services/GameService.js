@@ -150,13 +150,14 @@ class GameService {
     if (game.isEnded) {
       throw new Error("Game has already ended");
     }
-
+    console.log(`Player clicked ${x}, ${y}`);
     game.clickedCells.push({ x, y });
     this.gameStateManager.updateGame(gameId, game);
     return { success: true };
   }
 
   async endGame(gameId, endType = "timeout") {
+    console.log("Ending game");
     const game = this.gameStateManager.getGame(gameId);
     if (!game || game.isEnded) return null;
 
@@ -176,7 +177,7 @@ class GameService {
     const bugsFound = game.clickedCells.filter((cell) =>
       game.config.bugs.some((bug) => bug.x === cell.x && bug.y === cell.y)
     ).length;
-
+    console.log(`Bugs found: ${bugsFound}`);
     // Check if this is a guest user
     const isGuest = game.address.startsWith("guest_");
 

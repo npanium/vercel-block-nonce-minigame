@@ -14,7 +14,23 @@ export default function Home() {
   return (
     <main className="flex flex-col items-center justify-center">
       <div className="w-full p-4 flex justify-end">
-        <ConnectButton showBalance={false} />
+        <div className="relative inline-block">
+          {/* <ConnectButton showBalance={false} /> */}
+          <button
+            onClick={startWeb3Game}
+            className="bg-[#5c39ff]/50 border border-transparent text-[#dfd8ff]/50 px-5 py-2 rounded-lg 
+        "
+            disabled
+          >
+            Connect Wallet
+          </button>
+          <div className="absolute -top-3 -right-3 bg-[#39ffb3] text-[#6123ff] text-xs font-bold px-2 py-1 rounded-full transform rotate-12 shadow-lg">
+            <div className="relative">
+              <span className="relative z-10">Coming Soon!</span>
+              {/* Subtle animation glow effect */}
+            </div>
+          </div>
+        </div>
       </div>
 
       <Image
@@ -31,8 +47,10 @@ export default function Home() {
       {/* <h1 className="text-4xl font-bold mb-8">Block-Nonce Game</h1> */}
       <button
         onClick={startWeb3Game}
-        className="bg-[#5c39ff] border border-transparent text-[#dfd8ff] px-5 py-2 rounded-lg hover:bg-[#5c39ff]/10 hover:border hover:border-[#5c39ff]"
-        disabled={isLoading}
+        className="bg-[#5c39ff]/50 border border-transparent text-[#dfd8ff]/50 px-5 py-2 rounded-lg 
+        "
+        // disabled={isLoading}
+        disabled
         style={
           isLoading
             ? {
