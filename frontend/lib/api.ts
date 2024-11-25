@@ -252,11 +252,11 @@ export const endGameWithFullVerification = async (
         timeout: 300000,
       }
     );
-    console.log(
-      `End game full verification response data: ${JSON.stringify(
-        response.data
-      )}`
-    );
+    // console.log(
+    //   `End game full verification response data: ${JSON.stringify(
+    //     response.data
+    //   )}`
+    // );
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -266,9 +266,9 @@ export const endGameWithFullVerification = async (
 export const getPlayerStats = async (address: string): Promise<PlayerStats> => {
   try {
     const { address: playerAddress } = getPlayerIdentifier(address);
-    const response = await apiClient.get<PlayerStats>(
-      `/stats/${playerAddress}`
-    );
+    const response = await apiClient.get<PlayerStats>(`/stats/`, {
+      params: { address: playerAddress },
+    });
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);

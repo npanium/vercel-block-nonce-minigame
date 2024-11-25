@@ -102,7 +102,7 @@ export default function GamePage() {
     const fetchStats = async () => {
       try {
         const stats = await getPlayerStats(playerIdentifier);
-        console.log(`Stats: ${JSON.stringify(stats)}`);
+        // console.log(`Stats: ${JSON.stringify(stats)}`);
         setGamesPlayed(stats.gamesPlayed);
       } catch (err) {
         console.error(err);
@@ -127,7 +127,7 @@ export default function GamePage() {
       }
 
       console.log(`Found ${data.result.bugsFound} bugs`);
-      console.log(`Data from FE: ${JSON.stringify(data)}`);
+      // console.log(`Data from FE: ${JSON.stringify(data)}`);
       setVerificationInProg(data.result.verificationInProgress);
       setEndType(data.result.endType);
       setProofIsVerified(data.result.proofVerified);

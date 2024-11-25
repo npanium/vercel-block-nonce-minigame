@@ -26,7 +26,7 @@ export const useGameInitialization = (
     console.log("Trying to get existing game");
     try {
       const existingGame = await getGameState(playerIdentifier, gameId);
-      console.log(`Existing Game info: ${JSON.stringify(existingGame)}`);
+      // console.log(`info: ${JSON.stringify(existingGame)}`);
       if (existingGame) {
         if (
           existingGame.startTime !== undefined &&

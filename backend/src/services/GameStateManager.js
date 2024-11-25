@@ -104,6 +104,7 @@ class GameStateManager {
   }
 
   getPlayerStats(address) {
+    console.log(`GS address: ${address}`);
     return this.playerStats.get(address) || { gamesPlayed: 0 };
   }
 }
