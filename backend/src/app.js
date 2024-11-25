@@ -16,7 +16,10 @@ const server = http.createServer(app);
 
 const CORS_ORIGIN =
   process.env.NODE_ENV === "production"
-    ? ["https://vercel-block-nonce-minigame.vercel.app"]
+    ? [
+        "https://vercel-block-nonce-minigame.vercel.app",
+        "https://nonce-game.blockchaingods.io",
+      ]
     : ["http://localhost:3000"];
 
 app.use(
@@ -36,12 +39,17 @@ app.use(
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     exposedHeaders: ["set-cookie"],
+    optionsSuccessStatus: 204,
   })
 );
 
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  next();
+});
 
 const io = new Server(server, {
   cors: {
