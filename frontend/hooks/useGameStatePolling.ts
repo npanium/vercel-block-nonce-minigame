@@ -1,6 +1,6 @@
-import { ApiError, getGameState } from "@/lib/api";
+import { getGameState } from "@/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GameState } from "@/types/game";
+import { ApiError, GameState } from "@/types/game";
 
 interface UseGameStatePollingReturn {
   gameState: GameState | null;
@@ -23,7 +23,12 @@ export const useGameStatePolling = (
     try {
       const state = await getGameState(playerIdentifier, gameId);
       setGameState(state);
-      setIsRunning(!state.isEnded);
+
+      // Check if level time has expired
+      const timePassed = Date.now() - state.startTime;
+      const isExpired = timePassed >= state.config?.gameDuration!;
+
+      setIsRunning(!state.isEnded && !isExpired);
       setError(null);
 
       if (state.isEnded && intervalRef.current) {
@@ -51,6 +56,8 @@ export const useGameStatePolling = (
       }
     };
   }, [fetchGameState, pollInterval]);
+
+  // console.log(`Game State from hook: ${JSON.stringify(gameState)}`);
 
   return {
     gameState,

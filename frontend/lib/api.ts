@@ -4,10 +4,17 @@ import {
   GameState,
   PlayerStats,
   Position,
+  GameStateResponse,
+  ApiError,
+  StateValidationError,
+  GameStateData,
+  RoundSummary,
+  GameSummary,
 } from "@/types/game";
 import axios, { AxiosError } from "axios";
 import { io, Socket } from "socket.io-client";
 import Cookies from "js-cookie";
+import { gameStateManager } from "./GameStateManager";
 
 // API Types
 interface GameResponse {
@@ -30,18 +37,6 @@ interface PlayerIdentifier {
   isGuest: boolean;
 }
 
-// API Error
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public code?: string
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
 // API Configuration
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
@@ -49,11 +44,43 @@ const ROUTE_URL = API_BASE_URL + "/api/game";
 const TIMEOUT = 10000; // 10 seconds
 
 let socket: Socket | null = null;
+
+let currentGameState: string | null = null;
+let validActions: string[] = [];
+
 export const initializeSocket = () => {
   if (!socket) {
     socket = io(API_BASE_URL);
+
     socket.on("connect", () => {
       console.log("Connected to game server");
+    });
+
+    socket.on("gameState", (data: GameStateData) => {
+      // console.log("Received gameState:", data);
+      if (data.state && data.validActions) {
+        gameStateManager.updateState(data.state, data.validActions);
+      }
+    });
+
+    socket.on(
+      "stateChanged",
+      (data: { newState: string; validActions: string[] }) => {
+        // console.log("State changed:", data);
+        if (data.newState && data.validActions) {
+          gameStateManager.updateState(data.newState, data.validActions);
+        }
+      }
+    );
+
+    // error handling for socket
+    socket.on("error", (error: any) => {
+      console.error("Socket error:", error);
+    });
+
+    // debug event listner
+    socket.onAny((eventName, ...args) => {
+      // console.log(`Received socket event "${eventName}":`, args);
     });
 
     socket.on("disconnect", () => {
@@ -61,6 +88,49 @@ export const initializeSocket = () => {
     });
   }
   return socket;
+};
+
+const validateActionState = (action: string): boolean => {
+  return validActions.includes(action);
+};
+
+export const waitForValidState = (
+  targetState: string,
+  timeout = 30000
+): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const currentState = gameStateManager.getCurrentState();
+    // console.log(
+    //   `Waiting for state ${targetState}, current state: ${currentState}`
+    // );
+
+    if (currentState === targetState) {
+      resolve(true);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      gameStateManager.removeStateChangeListener(stateChangeHandler);
+      reject(
+        new Error(
+          `State wait timeout. Current: ${gameStateManager.getCurrentState()}, Expected: ${targetState}`
+        )
+      );
+    }, timeout);
+
+    const stateChangeHandler = (newState: string) => {
+      // console.log(
+      //   `State changed to ${newState} while waiting for ${targetState}`
+      // );
+      if (newState === targetState) {
+        clearTimeout(timeoutId);
+        gameStateManager.removeStateChangeListener(stateChangeHandler);
+        resolve(true);
+      }
+    };
+
+    gameStateManager.onStateChange(stateChangeHandler);
+  });
 };
 
 const getPlayerIdentifier = (address?: string): PlayerIdentifier => {
@@ -118,17 +188,167 @@ const handleApiError = (error: AxiosError): never => {
 export const joinGameRoom = (gameId: string) => {
   if (socket) {
     socket.emit("joinGame", gameId);
-    console.log(`Joined game room: ${gameId}`);
+    // console.log(`Joined game room: ${gameId}`);
+
+    // Request current state immediately after joining
+    socket.emit("requestGameState", gameId);
   }
 };
 
-export const setupGameEndListener = (
+export const setupLevelEndListener = (
   gameId: string,
-  onGameEnd: (data: GameEndData) => void
+  callback: (data: any) => void
 ) => {
   if (socket) {
-    socket.on("gameEnded", (data: GameEndData) => {
-      console.log("Game ended");
+    // Remove any existing listeners to prevent duplicates
+    socket.off("levelEnded");
+
+    // console.log("Setting up level end listener");
+    socket.on("levelEnded", (data) => {
+      // console.log("Level ended event received:", JSON.stringify(data));
+      // Update game state manager with new state
+      if (data.state && data.validActions) {
+        gameStateManager.updateState(data.state, data.validActions);
+      }
+      callback(data);
+    });
+  }
+};
+
+export const startLevel = async (
+  address: string,
+  gameId: string
+): Promise<GameConfig> => {
+  try {
+    const currentState = gameStateManager.getCurrentState();
+    console.log(`Attempting to start level. Current state: ${currentState}`);
+
+    if (!gameStateManager.isActionValid("startLevel")) {
+      const error = new ApiError(
+        "Cannot start level in current state",
+        409,
+        "INVALID_STATE",
+        currentState,
+        ["CREATED", "LEVEL_ENDED", "ROUND_COMPLETE"]
+      );
+      console.log("State validation failed:", error);
+      throw error;
+    }
+
+    const response = await apiClient.post<GameConfig>(
+      `/start-level/${gameId}`,
+      {
+        address,
+      }
+    );
+
+    const data: GameConfig = response.data;
+    if (data.state && data.validActions) {
+      gameStateManager.updateState(data.state, data.validActions);
+    }
+    console.log(
+      `[startLevel] GSM state updated with response data: ${JSON.stringify(
+        gameStateManager.getCurrentState()
+      )}`
+    );
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    return handleApiError(error as AxiosError);
+  }
+};
+
+export const clickCell = async (
+  gameId: string,
+  position: Position,
+  address: string
+): Promise<ClickResponse> => {
+  try {
+    const currentState = gameStateManager.getCurrentState();
+    const validActions = gameStateManager.getValidActions();
+    // console.log(`[clickCell] Attempting click with state:`, {
+    //   currentState,
+    //   validActions,
+    //   position,
+    // });
+
+    if (!gameStateManager.isActionValid("handleClick")) {
+      const error = new ApiError(
+        "Cannot click cells in current state",
+        409,
+        "INVALID_STATE",
+        currentState,
+        ["LEVEL_STARTED"]
+      );
+      console.error("[clickCell] State validation failed:", error);
+      throw error;
+    }
+
+    const { address: playerAddress } = getPlayerIdentifier(address);
+    const response = await apiClient.post<ClickResponse>("/click", {
+      gameId,
+      x: position.x,
+      y: position.y,
+      address: playerAddress,
+    });
+    // console.log(`Clicked cell response data: ${JSON.stringify(response.data)}`);
+    return response.data;
+  } catch (error) {
+    console.error("[clickCell] Error:", error);
+
+    return handleApiError(error as AxiosError);
+  }
+};
+
+export const endLevel = async (gameId: string, address: string) => {
+  try {
+    const currentState = gameStateManager.getCurrentState();
+    // console.log("Attempting to end level. Current state:", currentState);
+
+    if (!gameStateManager.isActionValid("endLevel")) {
+      throw new ApiError(
+        "Cannot end level in current state",
+        409,
+        "INVALID_STATE",
+        gameStateManager.getCurrentState(),
+        ["LEVEL_STARTED"]
+      );
+    }
+
+    const response = await apiClient.post<GameResponse>("/end-level", {
+      gameId,
+      address,
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error as AxiosError);
+  }
+};
+
+export const setupRoundCompleteListener = (
+  gameId: string,
+  onRoundComplete: (data: RoundSummary) => void
+) => {
+  if (socket) {
+    socket.on("roundComplete", (data: RoundSummary) => {
+      // console.log(`[setupRoundCompleteListener] data:`, data);
+      if (data.gameId === gameId) {
+        onRoundComplete(data);
+      }
+    });
+  }
+};
+
+export const setupGameCompleteListener = (
+  gameId: string,
+  onGameEnd: (data: GameSummary) => void
+) => {
+  if (socket) {
+    socket.on("gameComplete", (data: GameSummary) => {
+      // console.log("Game ended");
+      // console.log(`[setupGameCompleteListener] data:`, data);
       if (data.gameId === gameId) {
         onGameEnd(data);
       }
@@ -138,6 +358,12 @@ export const setupGameEndListener = (
 
 export const cleanupGameListeners = (gameId: string) => {
   if (socket) {
+    // console.log(`[cleanupGameListeners] sockets: ${socket}`);
+
+    socket.off("gameState");
+    socket.off("stateChanged");
+    socket.off("levelEnded");
+    socket.off("roundComplete");
     socket.off("gameEnded");
     // Optionally leave the room
     socket.emit("leaveGame", gameId);
@@ -149,7 +375,7 @@ export const createGame = async (
 ): Promise<GameResponse> => {
   try {
     const { address } = getPlayerIdentifier(playerAddress);
-    console.log(`Creating a game FE with address: ${address}`);
+    // console.log(`Creating a game FE with address: ${address}`);
     const response = await apiClient.post<GameResponse>("/create-game", {
       address,
     });
@@ -168,6 +394,10 @@ export const startGame = async (
     const response = await apiClient.post<GameConfig>(`/start-game/${gameId}`, {
       address: playerAddress,
     });
+
+    gameStateManager.setGameId(gameId);
+    gameStateManager.updateState("LEVEL_STARTED", ["handleClick", "endLevel"]);
+
     joinGameRoom(gameId);
     return response.data;
   } catch (error) {
@@ -178,12 +408,16 @@ export const startGame = async (
 export const getGameState = async (
   address: string,
   gameId: string
-): Promise<GameState> => {
+): Promise<GameStateResponse> => {
   try {
     const { address: playerAddress } = getPlayerIdentifier(address);
-    const response = await apiClient.get<GameState>(`/game-state/${gameId}`, {
-      params: { address: playerAddress },
-    });
+    const response = await apiClient.get<GameStateResponse>(
+      `/game-state/${gameId}`,
+      {
+        params: { address: playerAddress },
+      }
+    );
+
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -192,10 +426,13 @@ export const getGameState = async (
 
 export const updateGameState = async (
   gameId: string,
-  update: Partial<GameState>
-): Promise<GameState> => {
+  update: Partial<GameStateResponse>
+): Promise<GameStateResponse> => {
   try {
-    const response = await apiClient.patch<GameState>(`/${gameId}`, update);
+    const response = await apiClient.patch<GameStateResponse>(
+      `/${gameId}`,
+      update
+    );
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -207,17 +444,26 @@ export const endGame = async (
   address: string
 ): Promise<GameEndData> => {
   try {
+    if (!gameStateManager.isActionValid("endGame")) {
+      throw new ApiError(
+        "Cannot end game in current state",
+        409,
+        "INVALID_STATE",
+        gameStateManager.getCurrentState(),
+        ["LEVEL_ENDED", "ROUND_COMPLETE"]
+      );
+    }
+
     const { address: playerAddress, isGuest } = getPlayerIdentifier(address);
     const response = await apiClient.post<GameEndData>(
       `/end-game`,
       {
         gameId,
         address: playerAddress,
-        isGuest, // To let backend know if it's a guest
+        isGuest,
       },
       { timeout: 120000 }
     );
-    console.log(`End game response data: ${JSON.stringify(response.data)}`);
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
@@ -269,27 +515,41 @@ export const getPlayerStats = async (address: string): Promise<PlayerStats> => {
     const response = await apiClient.get<PlayerStats>(`/stats/`, {
       params: { address: playerAddress },
     });
+
     return response.data;
   } catch (error) {
     return handleApiError(error as AxiosError);
   }
 };
 
-export const clickCell = async (
-  gameId: string,
-  position: Position,
-  address: string
-): Promise<ClickResponse> => {
-  try {
-    const { address: playerAddress } = getPlayerIdentifier(address);
-    const response = await apiClient.post<ClickResponse>("/click", {
-      gameId,
-      x: position.x,
-      y: position.y,
-      address: playerAddress,
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error as AxiosError);
+export const retryWithStateValidation = async <T>(
+  action: () => Promise<T>,
+  requiredState: string,
+  maxAttempts = 3,
+  retryDelay = 2000
+): Promise<T> => {
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      return await action();
+    } catch (error) {
+      attempts++;
+
+      if (error instanceof ApiError && error.code === "INVALID_STATE") {
+        // console.log(`Attempt ${attempts}: Waiting for state ${requiredState}`);
+        try {
+          await waitForValidState(requiredState, retryDelay);
+          continue;
+        } catch (waitError) {
+          if (attempts === maxAttempts) throw waitError;
+          continue;
+        }
+      }
+
+      throw error;
+    }
   }
+
+  throw new Error("Max retry attempts reached");
 };

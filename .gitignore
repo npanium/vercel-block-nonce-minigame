@@ -25,10 +25,11 @@ target
 .cargo
 
 # Next.js (frontend)
+.next/
 /.next/
 /out/
 /build
-frontend/.next
+
 
 # Vercel (frontend)
 /.vercel
