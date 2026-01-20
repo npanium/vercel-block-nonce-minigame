@@ -1,4 +1,9 @@
+#[macro_use]
+extern crate rocket;
+
 use actix_web::{web, App, HttpServer, Responder};
+use rocket::{serde::json::Json, State};
+
 use aligned_sdk::core::types::{Network, PriceEstimate, ProvingSystemId, VerificationData};
 use aligned_sdk::sdk::{deposit_to_aligned, estimate_fee, get_payment_service_address};
 use aligned_sdk::sdk::{get_next_nonce, submit_and_wait_verification};
@@ -48,12 +53,18 @@ struct Response {
     on_chain_verified: bool,
 }
 
-async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> impl Responder {
+#[get("/health")]
+fn health() -> &'static str {
+    "OK"
+}
+
+#[post("/set-secret", data = "<data>")]
+async fn set_secret(data: Json<SecretData>, state: &State<AppState>) -> Json<Response> {
     let mut secret = state.secret.lock().unwrap();
     *secret = Some(data.secret);
-    web::Json(Response {
+    Json(Response {
         success: true,
-        message: "Secret set successfully".to_string(),
+        message: "Secret set successfully".into(),
         proof_verified: false,
         on_chain_verified: false,
     })
@@ -63,7 +74,10 @@ async fn set_secret(data: web::Json<SecretData>, state: web::Data<AppState>) -> 
 async fn generate_and_verify_local(
     user_guess: u32,
     secret: u32,
-) -> Result<(bool, ResponseData, sp1_sdk::SP1ProofWithPublicValues), actix_web::Error> {
+) -> Result<
+    (bool, ResponseData, sp1_sdk::SP1ProofWithPublicValues),
+    rocket::response::Debug<std::io::Error>,
+> {
     utils::setup_logger();
 
     println!(
@@ -76,8 +90,15 @@ async fn generate_and_verify_local(
     stdin.write(&secret);
 
     let elf_path = format!("../program/elf/riscv32im-succinct-zkvm-elf");
+    // let elf = fs::read(&elf_path).map_err(|e| {
+    //     actix_web::error::ErrorInternalServerError(format!("Failed to read ELF file: {}", e))
+    // })?;
+
     let elf = fs::read(&elf_path).map_err(|e| {
-        actix_web::error::ErrorInternalServerError(format!("Failed to read ELF file: {}", e))
+        rocket::response::Debug(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to read ELF file: {}", e),
+        ))
     })?;
 
     println!("Setting up Prover Client with elf path-{}", elf_path);
