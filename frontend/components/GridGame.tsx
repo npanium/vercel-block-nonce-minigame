@@ -28,6 +28,7 @@ interface GridGameProps {
   enemyPositions: Position[];
   gameId: string;
   address: string;
+  levelKey?: string; // Add this to force reset on level change
 }
 
 const GridGame: React.FC<GridGameProps> = ({
@@ -36,6 +37,7 @@ const GridGame: React.FC<GridGameProps> = ({
   enemyPositions,
   gameId,
   address,
+  levelKey,
 }) => {
   const [grid, setGrid] = useState<CellData[][]>([]);
   const [cursorPosition, setCursorPosition] = useState<Position>({
@@ -45,6 +47,11 @@ const GridGame: React.FC<GridGameProps> = ({
   const [revealedCells, setRevealedCells] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+
+  // Reset revealed cells when level changes
+  useEffect(() => {
+    setRevealedCells(new Set());
+  }, [levelKey]);
 
   useEffect(() => {
     const createGrid = () =>
@@ -56,7 +63,7 @@ const GridGame: React.FC<GridGameProps> = ({
             .map(() => ({
               shape: shapes[Math.floor(Math.random() * shapes.length)],
               offset: { x: 0, y: 0 },
-            }))
+            })),
         );
 
     setGrid(createGrid());
@@ -71,8 +78,8 @@ const GridGame: React.FC<GridGameProps> = ({
               x: Math.sin(Date.now() / 1000 + Math.random() * 10) * 5,
               y: Math.cos(Date.now() / 1000 + Math.random() * 10) * 5,
             },
-          }))
-        )
+          })),
+        ),
       );
     }, 50);
 
@@ -86,7 +93,7 @@ const GridGame: React.FC<GridGameProps> = ({
       const y = Math.floor((e.clientY - rect.top) / (rect.height / gridSize));
       setCursorPosition({ x, y });
     },
-    [gridSize]
+    [gridSize],
   );
 
   const handleCellClick = useCallback(
@@ -117,7 +124,7 @@ const GridGame: React.FC<GridGameProps> = ({
         setIsProcessing(false);
       }
     },
-    [onCellReveal, revealedCells, isProcessing, toast]
+    [onCellReveal, revealedCells, isProcessing, toast],
   );
 
   const isEnemyCell = (x: number, y: number) => {
@@ -151,14 +158,17 @@ const GridGame: React.FC<GridGameProps> = ({
           return (
             <div
               key={`${x}-${y}`}
-              className={`cursor-pointer flex justify-center items-center relative transition-all ease-out hover:bg-gray-900 border-blue-600 
-                hover:border-4 hover:border-dashed hover:border-teal-300
+              className={`cursor-pointer rounded-xl flex justify-center items-center relative transition-all ease-out hover:bg-gray-900
                 ${isRevealed ? "opacity-100" : "opacity-0"} ${
-                isEnemyCell(x, y) ? "duration-500" : "duration-1000"
-              } cell-style `}
+                  isEnemyCell(x, y) ? "duration-500" : "duration-1000"
+                } cell-style `}
               onClick={() => handleCellClick(x, y)}
               style={{
                 transform: `translate(${cell.offset.x}px, ${cell.offset.y}px)`,
+                boxShadow:
+                  cursorPosition.x === x && cursorPosition.y === y
+                    ? "inset 0 0 10px 4px #5eead4"
+                    : "none",
               }}
             >
               <Image
@@ -182,7 +192,7 @@ const GridGame: React.FC<GridGameProps> = ({
               )}
             </div>
           );
-        })
+        }),
       )}
     </div>
   );

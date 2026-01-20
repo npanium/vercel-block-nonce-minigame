@@ -106,7 +106,23 @@ class MockApiService {
   }
 
   async createGame(playerAddress?: string): Promise<{ gameId: string }> {
+    // If a game already exists for this player, return it instead of creating a new one
+    if (this.currentGame && !this.currentGame.isEnded) {
+      console.log(
+        "[MockAPI] Returning existing game:",
+        this.currentGame.gameId,
+      );
+      return { gameId: this.currentGame.gameId };
+    }
+
     const gameId = `game_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    console.log(
+      "[MockAPI] Creating game:",
+      gameId,
+      "for player:",
+      playerAddress,
+    );
 
     this.currentGame = {
       gameId,
@@ -128,12 +144,31 @@ class MockApiService {
     this.saveCurrentGame();
     this.notifyStateChange("CREATED", ["startGame"]);
 
+    console.log(
+      "[MockAPI] Game created successfully:",
+      this.currentGame.gameId,
+    );
+
     return { gameId };
   }
 
   async startGame(address: string, gameId: string): Promise<GameConfig> {
+    console.log("[MockAPI] startGame called with:", {
+      address,
+      gameId,
+      currentGameId: this.currentGame?.gameId,
+    });
+
     if (!this.currentGame || this.currentGame.gameId !== gameId) {
-      throw new Error("Game not found");
+      console.error(
+        "[MockAPI] Game not found. Current game:",
+        this.currentGame?.gameId,
+        "Requested:",
+        gameId,
+      );
+      throw new Error(
+        `Game not found. Looking for ${gameId} but current game is ${this.currentGame?.gameId || "null"}`,
+      );
     }
 
     // Generate bugs for first level
@@ -148,6 +183,8 @@ class MockApiService {
 
     this.saveCurrentGame();
     this.notifyStateChange("LEVEL_STARTED", ["handleClick", "endLevel"]);
+
+    console.log("[MockAPI] Game started successfully");
 
     return {
       startTime: this.currentGame.startTime,
@@ -273,15 +310,23 @@ class MockApiService {
   }
 
   private triggerLevelEnded(levelStat: LevelStat) {
+    if (!this.currentGame) return;
+
+    const isRoundComplete =
+      this.currentGame.currentLevel % GAME_CONFIG.LEVELS_PER_ROUND === 0;
+    const isGameComplete = false; // Will be set by endGame
+
     // Simulate socket event
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("levelEnded", {
           detail: {
-            gameId: this.currentGame?.gameId,
-            levelStat,
-            state: "LEVEL_ENDED",
+            gameId: this.currentGame.gameId,
+            result: levelStat,
+            state: isRoundComplete ? "ROUND_COMPLETE" : "LEVEL_ENDED",
             validActions: ["startLevel", "endGame"],
+            isRoundComplete,
+            isGameComplete,
           },
         }),
       );
@@ -335,6 +380,60 @@ class MockApiService {
   async endGame(gameId: string, address: string): Promise<GameEndData> {
     if (!this.currentGame || this.currentGame.gameId !== gameId) {
       throw new Error("Game not found");
+    }
+
+    // End current level first if it's still running
+    if (this.currentGame.startTime > 0 && !this.currentGame.isEnded) {
+      const timePassed = Math.floor(
+        (Date.now() - this.currentGame.startTime) / 1000,
+      );
+      const timeRemaining = Math.max(
+        0,
+        GAME_CONFIG.LEVEL_DURATION - timePassed,
+      );
+
+      // Calculate bugs found
+      const bugsFound = this.currentGame.clickedCells.filter((clicked) =>
+        this.currentGame!.bugs.some(
+          (bug) => bug.x === clicked.x && bug.y === clicked.y,
+        ),
+      ).length;
+
+      const score = this.calculateScore(
+        bugsFound,
+        GAME_CONFIG.NUM_BUGS,
+        timeRemaining,
+        GAME_CONFIG.LEVEL_DURATION,
+      );
+
+      // Create level stat
+      const levelStat: LevelStat = {
+        level: this.currentGame.currentLevel,
+        bugsFound,
+        totalBugs: GAME_CONFIG.NUM_BUGS,
+        score,
+        duration: timePassed * 1000,
+        clickedCells: this.currentGame.clickedCells.length,
+      };
+
+      this.currentGame.roundStats.push(levelStat);
+      this.currentGame.totalScore += score;
+
+      // Trigger level ended with game complete flag
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("levelEnded", {
+            detail: {
+              gameId: this.currentGame.gameId,
+              result: levelStat,
+              state: "GAME_COMPLETE",
+              validActions: [],
+              isRoundComplete: true,
+              isGameComplete: true,
+            },
+          }),
+        );
+      }
     }
 
     this.currentGame.isEnded = true;
@@ -455,13 +554,10 @@ class MockApiService {
   }
 }
 
-// Singleton instance
-let mockApiInstance: MockApiService | null = null;
+// Singleton instance - created once globally
+const mockApiInstance = new MockApiService();
 
 export const getMockApi = () => {
-  if (!mockApiInstance) {
-    mockApiInstance = new MockApiService();
-  }
   return mockApiInstance;
 };
 

@@ -45,7 +45,7 @@ export default function Home() {
         <AnimatedBlockNonce />
       </div>
       {/* <h1 className="text-4xl font-bold mb-8">Block-Nonce Game</h1> */}
-      <button
+      {/* <button
         onClick={startWeb3Game}
         className="bg-[#5c39ff]/50 border border-transparent text-[#dfd8ff]/50 px-5 py-2 rounded-lg 
         "
@@ -60,8 +60,14 @@ export default function Home() {
         }
       >
         Start Game
+      </button> */}
+      <button
+        onClick={() => (window.location.href = "/demo")}
+        className="bg-[#dfd8ff] border border-transparent text-[#5c39ff] px-5 py-2 rounded-lg hover:bg-[#dfd8ff]/10 hover:border hover:border-[#5c39ff]"
+      >
+        Start Demo
       </button>
-      <p className="my-5">Or</p>
+      {/* <p className="my-5">Or</p>
       <button
         onClick={startGuestGame}
         className="bg-[#dfd8ff] border border-transparent text-[#5c39ff] px-5 py-2 rounded-lg hover:bg-[#dfd8ff]/10 hover:border hover:border-[#5c39ff]"
@@ -75,7 +81,7 @@ export default function Home() {
         }
       >
         Play without connecting wallet
-      </button>
+      </button> */}
       {/* <p className="text-xs mt-4">
         Use this option if you don&apos;t know what a <i>wallet</i> is
       </p> */}
